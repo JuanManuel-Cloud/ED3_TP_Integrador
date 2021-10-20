@@ -1,0 +1,2 @@
+eclipse.preferences.version=1
+macros/workspace=<?xml version\="1.0" encoding\="UTF-8" standalone\="no"?>\n<macros>\n    <stringMacro name\="SDK_LPC_RESOURCES" type\="VALUE_PATH_DIR" value\="/usr/local/mcuxpressoide-11.4.0_6224/ide/plugins/com.nxp.mcuxpresso.core.datamodels.resources_11.4.0.202103011116/override"/>\n    <stringMacro name\="SDK_2_x_FRDM_K64F" type\="VALUE_PATH_DIR" value\="/home/mathrisk/mcuxpresso/02/SDKPackages/SDK_2_10_0_FRDM-K64F"/>\n</macros>\n

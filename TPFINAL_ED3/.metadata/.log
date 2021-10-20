@@ -1,0 +1,27 @@
+!SESSION 2021-10-20 09:36:10.160 -----------------------------------------------
+eclipse.buildId=unknown
+java.version=11.0.10
+java.vendor=AdoptOpenJDK
+BootLoader constants: OS=linux, ARCH=x86_64, WS=gtk, NL=en_US
+Command-line arguments:  -data /home/mathrisk/Documents/MCUXpresso_11.4.0_6224/TPFINAL_ED3 -os linux -ws gtk -arch x86_64
+
+!ENTRY com.nxp.mcuxpresso.core.datamodels 1 0 2021-10-20 09:36:20.869
+!MESSAGE Recreating part support. No part support available.
+!SESSION 2021-10-20 09:39:49.808 -----------------------------------------------
+eclipse.buildId=unknown
+java.version=11.0.10
+java.vendor=AdoptOpenJDK
+BootLoader constants: OS=linux, ARCH=x86_64, WS=gtk, NL=en_US
+Command-line arguments:  -os linux -ws gtk -arch x86_64
+
+!ENTRY com.nxp.mcuxpresso.core.datamodels 1 0 2021-10-20 09:40:02.950
+!MESSAGE Recreating part support. No part support available.
+
+!ENTRY com.nxp.mcuxpresso.core.datamodels 1 0 2021-10-20 09:40:07.078
+!MESSAGE The device 'MK64FN1M0xxx12' (version='1.0.0') from SDK 'SDK_2.x_FRDM-K64F' (version='2.10.0', build='494 2021-07-15') will be installed.
+
+!ENTRY org.eclipse.cdt.core 1 0 2021-10-20 09:41:55.348
+!MESSAGE Indexed 'CMSISv2p00_LPC17xx' (2 sources, 9 headers) in 0.856 sec: 1,213 declarations; 2,133 references; 0 unresolved inclusions; 0 syntax errors; 0 unresolved names (0%)
+
+!ENTRY org.eclipse.cdt.core 1 0 2021-10-20 09:42:05.808
+!MESSAGE Indexed 'TPFINAL_ED3' (2 sources, 1 headers) in 0.072 sec: 144 declarations; 150 references; 0 unresolved inclusions; 0 syntax errors; 0 unresolved names (0%)
