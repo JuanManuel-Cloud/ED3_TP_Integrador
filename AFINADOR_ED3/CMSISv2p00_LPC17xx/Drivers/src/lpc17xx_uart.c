@@ -441,7 +441,7 @@ void UART_DeInit(LPC_UART_TypeDef* UARTx)
 *******************************************************************************/
 void UART_ConfigStructInit(UART_CFG_Type *UART_InitStruct)
 {
-    UART_InitStruct->Baud_rate = 9600;
+    UART_InitStruct->Baud_rate = 115200;
     UART_InitStruct->Databits = UART_DATABIT_8;
     UART_InitStruct->Parity = UART_PARITY_NONE;
     UART_InitStruct->Stopbits = UART_STOPBIT_1;

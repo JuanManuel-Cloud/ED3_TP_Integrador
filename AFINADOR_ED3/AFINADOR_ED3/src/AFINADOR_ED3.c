@@ -5,21 +5,24 @@
  Consigna :
 ===============================================================================
 */
-#include "stdlib.h"
+#include <stdlib.h>
+#include <stdio.h>
 #include "LPC17xx.h"
 #include "lpc17xx_adc.h"
 #include "lpc17xx_timer.h"
 #include "lpc17xx_gpio.h"
 #include "lpc17xx_pinsel.h"
+#include "lpc17xx_uart.h"
 
 #define SAMP_FREQ	50000
-#define	BUFF_SIZE	50
-#define FREQ_BUFF 10
+#define	BUFF_SIZE	70
+#define FREQ_BUFF 2
 
 void confGPIO(void); 		// Prototipo de la funcion de conf. de puertos
 void confADC(void); 		//Prototipo de la funcion de conf. de interrupciones externas
 void confTimers(void); 		// Prototipo de la funcion de conf. de timer
 void confIntGPIO(void);
+void confUart(void);
 uint32_t abs_calc(int value);
 
 // Variables funcionalidad deteccion de frecuencia
@@ -40,14 +43,19 @@ uint32_t parc_sum = 0;
 uint32_t aux_freq = 0;
 uint32_t parc_sum_freq = 0;
 
+// Variables utilizacion UART
+uint8_t UART_array[64];
 
 int main(void) {
 	confGPIO();
 	confIntGPIO();
+	confUart();
 	confTimers();
 	confADC();
 
 	GPIO_ClearValue(0,(0xB80<<7));	// Inicializo en bajo salidas P0.11 y P0.[9:7] con 1011_1000_0000 = 0xB80
+
+	NVIC_EnableIRQ(ADC_IRQn);           // Habilito interrupciones por ADC
 
     while(1) {
     	if(det_freq != old_det_freq){
@@ -77,6 +85,16 @@ void confGPIO(void){
 		PINSEL_ConfigPin(&pinsel); 	// Inicializo pines P0.[9:7]
 		GPIO_SetDir(0,(1<<i),1); 	// Configuro pines P0.[9:7] como salidas
 	}
+	// Configuracion pines Tx y Rx para UART
+	PINSEL_CFG_Type Pinsel_UART;
+	Pinsel_UART.Funcnum = 1;			// Funcion 01: (Tx y Rx)
+	Pinsel_UART.OpenDrain = 0;		// OD desactivado
+	Pinsel_UART.Pinmode = 0;			// Pull-Up
+	Pinsel_UART.Pinnum = 2;			// P0.2 para Tx (Conectar cable Blanco)
+	Pinsel_UART.Portnum = 0;			// Puerto 0
+	PINSEL_ConfigPin(&Pinsel_UART);
+	Pinsel_UART.Pinnum = 3;			// P0.3 para Rx (Conectar cable Verde)
+	PINSEL_ConfigPin(&Pinsel_UART);
 	return;
 }
 
@@ -115,8 +133,6 @@ void confADC(void){
 	ADC_StartCmd(LPC_ADC,ADC_START_ON_MAT01);     // Configuro conversion ante MAT0.1 (REGISTRO MR1 DE TIMER0)
 	ADC_EdgeStartConfig(LPC_ADC,1);			// Un 1 en bit 27 significa comienza por FLANCO DESCENDENTE en EMR1
 	ADC_IntConfig(LPC_ADC,ADC_ADINTEN0,1);   // Habilito interrupciones por canal AD0.0
-	ADC_GlobalGetStatus(LPC_ADC,1);
-	NVIC_EnableIRQ(ADC_IRQn);           // Habilito interrupciones por ADC
 	return;
 }
 
@@ -128,6 +144,7 @@ void EINT3_IRQHandler(void){
 
 void ADC_IRQHandler(void) {
 	buffer[aux] = ADC_ChannelGetData(LPC_ADC,0);
+
 	for(uint32_t k=0;k<BUFF_SIZE;k++){
 //		buffer[k] = buffer[k-1];
 		parc_sum += buffer[k];
@@ -200,6 +217,13 @@ void ADC_IRQHandler(void) {
 
 	is_crossing = 0;
 	
+	sprintf(UART_array,"%4d,%4d,%4d\r\n",ADC_ChannelGetData(LPC_ADC,0),current_sample_filt,det_freq);
+
+
+	UART_Send(LPC_UART0,UART_array,sizeof(UART_array),BLOCKING);
+
+//	UART_WriteBlocking(UART0,print_array,sizeof(print_array));
+
 	// if(det_freq != old_det_freq){    // CONEXIONES:    [P0.7 LED ROJO]    [P0.8 LED VERDE]    [P0.9 LED AMARILLO]
 	// 	if(det_freq > (comp_freq+50)){ // Si la diferencia es mayor a 30 Hz
 	// 		// La frecuencia detectada se encuentra a mas de 30 Hz por encima de la deseada
@@ -232,5 +256,15 @@ uint32_t abs_calc(int32_t value) {
 	uint32_t aux;
 	aux = value > 0 ? value : - value;
 	return aux;
+}
+void confUart(void){
+	UART_CFG_Type UARTConfigStruct;
+	UART_FIFO_CFG_Type UARTFIFOConfigStruct;			// configuraci�n por defecto:
+	UART_ConfigStructInit(&UARTConfigStruct);			// inicializa perif�rico
+	UART_Init(LPC_UART0, &UARTConfigStruct);
+	UART_FIFOConfigStructInit(&UARTFIFOConfigStruct);	// Inicializa FIFO
+	UART_FIFOConfig(LPC_UART0, &UARTFIFOConfigStruct);	// Habilita transmisi�n
+	UART_TxCmd(LPC_UART0, ENABLE);
+return;
 }
 
