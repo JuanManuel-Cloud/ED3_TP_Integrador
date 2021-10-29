@@ -15,7 +15,7 @@
 #include "lpc17xx_uart.h"
 
 #define SAMP_FREQ	50000
-#define	BUFF_SIZE	70
+#define	BUFF_SIZE	50
 #define FREQ_BUFF 2
 
 void confGPIO(void); 		// Prototipo de la funcion de conf. de puertos
@@ -30,11 +30,13 @@ uint32_t buffer[BUFF_SIZE];
 uint32_t freq_buff[FREQ_BUFF];
 uint32_t old_sample_filt = 0;
 uint32_t current_sample_filt = 0;
+uint32_t adcValue = 0;
 uint32_t is_crossing = 0;
 uint32_t rising_sample = 0;
 uint32_t falling_sample = 0;
 uint32_t sample_count = 0;
 uint32_t det_freq = 0;
+uint32_t det_freq_aux = 0;
 uint32_t comp_freq = 300;
 uint32_t old_det_freq = 0;
 uint8_t is_first_cross = 1;
@@ -143,7 +145,8 @@ void EINT3_IRQHandler(void){
 }
 
 void ADC_IRQHandler(void) {
-	buffer[aux] = ADC_ChannelGetData(LPC_ADC,0);
+	adcValue = ADC_ChannelGetData(LPC_ADC,0);
+	buffer[aux] = adcValue;
 
 	for(uint32_t k=0;k<BUFF_SIZE;k++){
 //		buffer[k] = buffer[k-1];
@@ -184,23 +187,30 @@ void ADC_IRQHandler(void) {
 		if(!is_first_cross) {
 //			printf("\n calculando frec \n");
 			sample_count = 0;
-
-			freq_buff[aux_freq] = SAMP_FREQ/(2*(abs_calc(falling_sample - rising_sample))); // Tsamp*num_samp_rise_fall = Tdet
-
-			for(uint32_t j=0;j<FREQ_BUFF;j++){
-				parc_sum_freq += freq_buff[j];
-			}
-			aux_freq++;
-
-			if(aux_freq>=FREQ_BUFF){
-				aux_freq=0;
-			}
 			old_det_freq = det_freq;
-			det_freq = parc_sum_freq/FREQ_BUFF;
-			parc_sum_freq = 0;
+
+			det_freq_aux = SAMP_FREQ/(2*abs(falling_sample - rising_sample));//(abs_calc(falling_sample - rising_sample))); // Tsamp*num_samp_rise_fall = Tdet
+
+			if(det_freq_aux < 12400){
+				det_freq = 	det_freq_aux;
+			}
+
+//			freq_buff[aux_freq] = SAMP_FREQ/(2*(abs_calc(falling_sample - rising_sample))); // Tsamp*num_samp_rise_fall = Tdet
+//
+//			for(uint32_t j=0;j<FREQ_BUFF;j++){
+//				parc_sum_freq += freq_buff[j];
+//			}
+//			aux_freq++;
+//
+//			if(aux_freq>=FREQ_BUFF){
+//				aux_freq=0;
+//			}
 //			old_det_freq = det_freq;
-//			det_freq = SAMP_FREQ/(2*(abs_calc(falling_sample - rising_sample))); // Tsamp*num_samp_rise_fall = Tdet
-//			printf("%d\r\n",det_freq);
+//			det_freq = parc_sum_freq/FREQ_BUFF;
+//			parc_sum_freq = 0;
+
+//			sprintf(UART_array,"%4d\r\n",det_freq);
+//			UART_Send(LPC_UART0,UART_array,sizeof(UART_array),BLOCKING);
 		}
 	}
 	 // Tdet = 2*Tsamp*num_samp_rise_fall = Tdet
@@ -217,10 +227,9 @@ void ADC_IRQHandler(void) {
 
 	is_crossing = 0;
 	
-	sprintf(UART_array,"%4d,%4d,%4d\r\n",ADC_ChannelGetData(LPC_ADC,0),current_sample_filt,det_freq);
+//	sprintf(UART_array,"%4d,0,0,%4d,0,0,%4d\r\n",ADC_ChannelGetData(LPC_ADC,0),current_sample_filt,det_freq);
+//	UART_Send(LPC_UART0,UART_array,sizeof(UART_array),BLOCKING);
 
-
-	UART_Send(LPC_UART0,UART_array,sizeof(UART_array),BLOCKING);
 
 //	UART_WriteBlocking(UART0,print_array,sizeof(print_array));
 
