@@ -8,22 +8,26 @@
 ===============================================================================
 */
 
-#include "stdlib.h"
+#include <stdlib.h>
+#include <stdio.h>
 #include "LPC17xx.h"
 //#include "lpc17xx_adc.h"
 #include "lpc17xx_timer.h"
 #include "lpc17xx_gpio.h"
+#include "lpc17xx_systick.h"
 #include "lpc17xx_pinsel.h"
 
 void confGPIO(void); 		// Prototipo de la funcion de conf. de puertos
 //void confADC(void); 		//Prototipo de la funcion de conf. de interrupciones externas
 void confTimers(void); 		// Prototipo de la funcion de conf. de timer
 void confIntGPIO(void);
+void Push_Response(void);
 void COL0_ISR(void);
 void COL1_ISR(void);
 void COL2_ISR(void);
 void COL3_ISR(void);
 
+uint8_t test_count =0;
 uint8_t row_value = 0;
 
 int main(void) {
@@ -35,7 +39,6 @@ int main(void) {
 
 	NVIC_EnableIRQ(EINT3_IRQn); // Habilito interrupciones por GPIO
     while(1) {
-
     }
     return 0 ;
 }
@@ -63,7 +66,7 @@ void confTimers(void){
 	TIM_TIMERCFG_Type timer2;
 	TIM_MATCHCFG_Type match2;
 	timer2.PrescaleOption = TIM_PRESCALE_USVAL;
-	timer2.PrescaleValue = 40;
+	timer2.PrescaleValue = 85;
 	// MR1 (Ti = TPR*(MR+1) = 40us*1000 = 40ms)
 	TIM_Init(LPC_TIM2,TIM_TIMER_MODE,&timer2);
 	match2.MatchChannel = 0;
@@ -77,6 +80,46 @@ void confTimers(void){
 	TIM_Cmd(LPC_TIM2,ENABLE);
 	NVIC_EnableIRQ(TIMER2_IRQn);
 	return;
+}
+
+void SysTick_Handler(void){
+	if( ~((GPIO_ReadValue(2)) & (0xF<<4)) & (0xF<<4) ){  // Operador logico para determinar si P2.[7:4] sigue presionado
+		// 1111_1111_0001_1111 & 0000_0000_1111_0000 = 0010_0000
+		test_count ++ ;             // Si sigue presionado se incrementa variable test_count
+		if(test_count == 3){        // Si se incremento 3 veces, se ingresa al switch(counter)
+			Push_Response();
+			SysTick->CTRL &= SysTick->CTRL; // Anulo flag de fin de cuenta
+			SYSTICK_Cmd(DISABLE);
+			NVIC_EnableIRQ(EINT3_IRQn);     // Vuelvo a habilitar interrupciones por EINT3
+			test_count=0;                   // Anulo variable test_count para proximo antirrebote
+		}
+		else{} // Si no se incremento test_count 3 veces, pero sigue presionado el pulsador no se hace nada.
+	}
+	else{
+		SysTick->CTRL &= SysTick->CTRL;  // Anulo flag de fin de cuenta
+		SYSTICK_Cmd(DISABLE);
+		NVIC_EnableIRQ(EINT3_IRQn);   // Vuelvo a habilitar interrupciones por EINT3
+		test_count = 0; // Si no se incremento el test_count 3 veces, pero se solto el pulsador, se anula variable test_count para proximo antirrebote.
+	}
+	FIO_ClearInt(2,(0xF<<4));	// Limpio bandera de interrupcion en P2.[7:4] antes de habilitarlas
+	SYSTICK_ClearCounterFlag();
+	return;
+}
+void Push_Response(void){
+	switch( ~((GPIO_ReadValue(2)) & (0xF<<4)) & (0xF<<4) ){
+	case(1<<4): // P2.4
+		COL0_ISR();
+	break;
+	case(1<<5): // P2.5
+		COL1_ISR();
+	break;
+	case(1<<6):
+		COL2_ISR();
+	break;
+	case(1<<7):
+		COL3_ISR();
+	break;
+	}
 }
 
 void TIMER2_IRQHandler(void){
@@ -105,26 +148,18 @@ void TIMER2_IRQHandler(void){
 }
 
 void confIntGPIO(void){
-
 	FIO_IntCmd(2,(0xF<<4),1); 	// Inicializo interrupciones por flanco descendente en P2.[7:4]
 	FIO_ClearInt(2,(0xF<<4));	// Limpio bandera de interrupcion en P2.[7:4] antes de habilitarlas
-
 	return;
 }
 
 void EINT3_IRQHandler(void){
-	if(FIO_GetIntStatus(2,4,1)){ // COL 0
-		COL0_ISR();
-	}
-	else if(FIO_GetIntStatus(2,5,1)){ //??¡¡?
-		COL1_ISR();
-	}
-	else if(FIO_GetIntStatus(2,6,1)){
-		COL2_ISR();
-	}
-	else if(FIO_GetIntStatus(2,7,1)){
-		COL3_ISR();
-	}
+	NVIC_DisableIRQ(EINT3_IRQn); // Deshabilito interrupcion por EINT3
+	SYSTICK_InternalInit(20);    // Inicializo para interrumpir cada 20 ms, con el clock interno: SystemCoreClock
+	SysTick->VAL = 0;            // Valor inicial de cuenta en 0
+	SYSTICK_ClearCounterFlag();  // Anulo flag de fin de cuenta
+	SYSTICK_IntCmd(ENABLE);      // Habilito interrupciones por systick
+	SYSTICK_Cmd(ENABLE);
 	FIO_ClearInt(2,(0xF<<4)); // Limpio bandera de interrupcion por P0.6
 	return;
 }
@@ -143,6 +178,7 @@ void COL0_ISR(void){
 	break;
 	case 3 :		// [COL0;FIL3]
 		printf("Columna: 0, Fila: %4d\r\n",row_value);
+
 	break; // <<---???
 	}
 }
