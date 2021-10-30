@@ -226,15 +226,21 @@ void COL3_ISR(void){
 	switch(row_value){
 	case 0 :		// [COL3;FIL0]
 		printf("Columna: 3, Fila: %4d\r\n",row_value);
+		comp_freq = 200;
 	break;
 	case 1 :		// [COL3;FIL1]
 		printf("Columna: 3, Fila: %4d\r\n",row_value);
+		comp_freq = 400;
 	break;
 	case 2 :		// [COL3;FIL2]
 		printf("Columna: 3, Fila: %4d\r\n",row_value);
+		comp_freq = 600;
 	break;
 	case 3 :		// [COL3;FIL3]
 		printf("Columna: 3, Fila: %4d\r\n",row_value);
+		comp_freq = 800;
 	break;
 	}
 }
+
+

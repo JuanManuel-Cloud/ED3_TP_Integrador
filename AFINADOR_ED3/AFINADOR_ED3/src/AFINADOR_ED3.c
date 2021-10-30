@@ -36,10 +36,9 @@ uint32_t rising_sample = 0;
 uint32_t falling_sample = 0;
 uint32_t sample_count = 0;
 uint32_t det_freq = 0;
-uint32_t det_freq_aux = 0;
 uint32_t comp_freq = 300;
 uint32_t old_det_freq = 0;
-uint8_t is_first_cross = 1;
+
 uint32_t aux = 0;
 uint32_t parc_sum = 0;
 uint32_t aux_freq = 0;
@@ -70,13 +69,7 @@ int main(void) {
 void confGPIO(void){
 	PINSEL_CFG_Type pinsel;
 	pinsel.Portnum = 0;			// Puerto 0
-	pinsel.Pinnum = 1;			// Pin P0.11
-	PINSEL_ConfigPin(&pinsel);	// Inicializo pin P0.11
-	GPIO_SetDir(0,(1<<11),1); 	// Configuro pin P0.11 como salida
-	pinsel.Pinmode = 0;			// Configuro resistencia de pull-up en P0.6
-	pinsel.Pinnum = 6;			// Pin P0.6
-	PINSEL_ConfigPin(&pinsel);	// Inicializo pin P0.6
-	GPIO_SetDir(0,(1<<6),0);	// Configuro pin P0.6 como entrada
+
 	pinsel.Pinnum = 23;         // Pin P0.23
 	pinsel.Pinmode = 2;			// Configuro pin P0.23 en PINMODE1: neither pull-up nor pull-down.
 	pinsel.Funcnum = 1;			// Configuro pin P0.23 como entrada analogica para AD0.0
@@ -138,12 +131,6 @@ void confADC(void){
 	return;
 }
 
-void EINT3_IRQHandler(void){
-//	comp_freq = // Nueva frecuencia de comparacion segun instrumento y nota seleccionada
-	FIO_ClearInt(0,(1<<6)); // Limpio bandera de interrupcion por P0.6
-	return;
-}
-
 void ADC_IRQHandler(void) {
 	adcValue = ADC_ChannelGetData(LPC_ADC,0);
 	buffer[aux] = adcValue;
@@ -184,17 +171,11 @@ void ADC_IRQHandler(void) {
 
 	if(is_crossing && ((falling_sample - rising_sample) != 0)) {
 //		printf("\nIs crossing\n");
-		if(!is_first_cross) {
+
 //			printf("\n calculando frec \n");
-			sample_count = 0;
-			old_det_freq = det_freq;
+		old_det_freq = det_freq;
 
-			det_freq_aux = SAMP_FREQ/(2*abs(falling_sample - rising_sample));//(abs_calc(falling_sample - rising_sample))); // Tsamp*num_samp_rise_fall = Tdet
-
-			if(det_freq_aux < 12400){
-				det_freq = 	det_freq_aux;
-			}
-
+		det_freq = SAMP_FREQ/(2*abs(falling_sample - rising_sample));//(abs_calc(falling_sample - rising_sample))); // Tsamp*num_samp_rise_fall = Tdet
 //			freq_buff[aux_freq] = SAMP_FREQ/(2*(abs_calc(falling_sample - rising_sample))); // Tsamp*num_samp_rise_fall = Tdet
 //
 //			for(uint32_t j=0;j<FREQ_BUFF;j++){
@@ -209,21 +190,10 @@ void ADC_IRQHandler(void) {
 //			det_freq = parc_sum_freq/FREQ_BUFF;
 //			parc_sum_freq = 0;
 
-//			sprintf(UART_array,"%4d\r\n",det_freq);
-//			UART_Send(LPC_UART0,UART_array,sizeof(UART_array),BLOCKING);
-		}
+		sprintf(UART_array,"%4d\r\n",det_freq);
+		UART_Send(LPC_UART0,UART_array,sizeof(UART_array),BLOCKING);
 	}
 	 // Tdet = 2*Tsamp*num_samp_rise_fall = Tdet
-	if(is_crossing) {
-		if(is_first_cross) {
-//			printf("\nseteando el second cross\n");
-			is_first_cross = 0;
-		}
-		else {
-//			printf("\nseteando el first cross\n");
-			is_first_cross = 1;
-		}
-	}
 
 	is_crossing = 0;
 	
@@ -253,11 +223,6 @@ void ADC_IRQHandler(void) {
 	// 		GPIO_ClearValue(0,(5<<7));			// Pongo en bajo P0.7 y P0.9
 	// 	}
 	// }
-//	old_det_freq = det_freq;
-	// if((buffer[0])>2048)
-	// 	GPIO_SetValue(0,(1<<11));               // Pongo en alto P0.11 si el valor de AD0.0 > 1.65V
-	// else
-	// 	GPIO_ClearValue(0,(1<<11));			// Pongo en bajo P0.11 si el valor de AD0.0 < 1.65V
 	return;
 }
 
