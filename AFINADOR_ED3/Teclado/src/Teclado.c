@@ -19,14 +19,21 @@ void confGPIO(void); 		// Prototipo de la funcion de conf. de puertos
 //void confADC(void); 		//Prototipo de la funcion de conf. de interrupciones externas
 void confTimers(void); 		// Prototipo de la funcion de conf. de timer
 void confIntGPIO(void);
+void COL0_ISR(void);
+void COL1_ISR(void);
+void COL2_ISR(void);
+void COL3_ISR(void);
+
+uint8_t row_value = 0;
 
 int main(void) {
 
 	confGPIO();
-	confIntGPIO();
 	confTimers();
+	confIntGPIO();
 //	confADC();
 
+	NVIC_EnableIRQ(EINT3_IRQn); // Habilito interrupciones por GPIO
     while(1) {
 
     }
@@ -36,17 +43,18 @@ int main(void) {
 void confGPIO(void){
 	PINSEL_CFG_Type pinsel2;
 	pinsel2.Portnum = 2;			// Puerto 2
+	pinsel2.Funcnum	= 0;
 	for(uint8_t j=0;j<4;j++){
 		pinsel2.Pinnum = j;			// Pin P2.[3:0]
 		PINSEL_ConfigPin(&pinsel2);	// Inicializo pin P2.[3:0]
-		GPIO_SetDir(2,(1<<j),1); 	// Configuro pin P2.[3:0] como salidas
 	}
-	pinsel2.Pinmode = PINSEL_PINMODE_PULLUP;
+	pinsel2.Pinmode = 0;
 	for(uint8_t j=4;j<8;j++){
 		pinsel2.Pinnum = j;			// Pin P2.[7:4]
 		PINSEL_ConfigPin(&pinsel2);	// Inicializo pin P2.[7:4]
-		GPIO_SetDir(2,(1<<j),0); 	// Configuro pin P2.[7:4] como entradas
 	}
+	GPIO_SetDir(2,(0xF),1); 	// Configuro pin P2.[3:0] como salidas
+	GPIO_SetDir(2,(0xF<<4),0); 	// Configuro pin P2.[7:4] como entradas
 	return;
 }
 
@@ -55,18 +63,19 @@ void confTimers(void){
 	TIM_TIMERCFG_Type timer2;
 	TIM_MATCHCFG_Type match2;
 	timer2.PrescaleOption = TIM_PRESCALE_USVAL;
-	timer2.PrescaleValue = 5;
-	// MR1 (Ti = TPR*(MR+1) = 5us*1000 = 5ms)
+	timer2.PrescaleValue = 40;
+	// MR1 (Ti = TPR*(MR+1) = 40us*1000 = 40ms)
 	TIM_Init(LPC_TIM2,TIM_TIMER_MODE,&timer2);
 	match2.MatchChannel = 0;
-	match2.MatchValue = 1000;
+	match2.MatchValue = 999;
 	match2.IntOnMatch = ENABLE;
 	match2.StopOnMatch = DISABLE;
 	match2.ResetOnMatch = ENABLE;
 	match2.ExtMatchOutputType = TIM_EXTMATCH_NOTHING;
 	TIM_ConfigMatch(LPC_TIM2,&match2);
-	TIM_ResetCounter(LPC_TIM2);
+//	TIM_ResetCounter(LPC_TIM2);
 	TIM_Cmd(LPC_TIM2,ENABLE);
+	NVIC_EnableIRQ(TIMER2_IRQn);
 	return;
 }
 
@@ -75,23 +84,20 @@ void TIMER2_IRQHandler(void){
 
 	switch(row_value){
 	case 0 :
-		LPC_GPIO2->FIOPIN |= 0x7;
-		row_value++;
-		break;
-	case 1:
-		LPC_GPIO2->FIOPIN |= 0xB;
-		row_value++;
+		LPC_GPIO2->FIOPIN = 0x7; // 0111
+		row_value = 3;
+		break; // row_value sale valiendo 0
+	case 3:
+		LPC_GPIO2->FIOPIN = 0xB; // 1011
+		row_value--; // row_value sale valiendo 1
 		break;
 	case 2:
-		LPC_GPIO2->FIOPIN |= 0xD;
-		row_value++;
+		LPC_GPIO2->FIOPIN = 0xD; // 1101
+		row_value--; // row_value sale valiendo 2
 		break;
-	case 3:
-		LPC_GPIO2->FIOPIN |= 0xE;
-		row_value++;
-		break;
-	case 4:
-		row_value = 0;
+	case 1:
+		LPC_GPIO2->FIOPIN = 0xE; // 1110
+		row_value--; // row_value sale valiendo 3
 		break;
 	}
 	TIM_ClearIntPending(LPC_TIM2,TIM_MR0_INT);       // Anulo bandera de itnerrupcion pendiente
@@ -102,69 +108,97 @@ void confIntGPIO(void){
 
 	FIO_IntCmd(2,(0xF<<4),1); 	// Inicializo interrupciones por flanco descendente en P2.[7:4]
 	FIO_ClearInt(2,(0xF<<4));	// Limpio bandera de interrupcion en P2.[7:4] antes de habilitarlas
-	NVIC_EnableIRQ(EINT3_IRQn); // Habilito interrupciones por GPIO
+
 	return;
 }
 
 void EINT3_IRQHandler(void){
-
 	if(FIO_GetIntStatus(2,4,1)){ // COL 0
-		switch(row_value){
-		case 0 :		// [COL0;FIL0]
-			// Ingreso a funcion AFINADOR
-		break;
-		case 1 :		// [COL0;FIL1]
-		break;
-		case 2 :		// [COL0;FIL2]
-		break;
-		case 3 :		// [COL0;FIL3]
-		break;
-		}
+		COL0_ISR();
 	}
-	else if(FIO_GetIntStatus(2,5,1)){
-		switch(row_value){
-		case 0 :		// [COL1;FIL0]
-			// -1bpm
-			// Cambiar tabla buffer con salida ciclica para DMA
-			// Redefinir TRANSFER_SIZE = # de datos de 32 bit a transferir (1 bit en 1?)
-			// 111111111000000000111111111
-			// 11111111110000000000
-		break;
-		case 1 :		// [COL1;FIL1]
-			// +1bpm
-		break;
-		case 2 :		// [COL1;FIL2]
-			// -10bpm
-		break;
-		case 3 :		// [COL1;FIL3]
-			// +10bpm
-		break;
-		}
+	else if(FIO_GetIntStatus(2,5,1)){ //??¡¡?
+		COL1_ISR();
 	}
 	else if(FIO_GetIntStatus(2,6,1)){
-		switch(row_value){
-		case 0 :		// [COL2;FIL0]
-		break;
-		case 1 :		// [COL2;FIL1]
-		break;
-		case 2 :		// [COL2;FIL2]
-		break;
-		case 3 :		// [COL2;FIL3]
-		break;
-		}
+		COL2_ISR();
 	}
 	else if(FIO_GetIntStatus(2,7,1)){
-		switch(row_value){
-		case 0 :		// [COL3;FIL0]
-		break;
-		case 1 :		// [COL3;FIL1]
-		break;
-		case 2 :		// [COL3;FIL2]
-		break;
-		case 3 :		// [COL3;FIL3]
-		break;
-		}
+		COL3_ISR();
 	}
-	FIO_ClearInt(0,(0xF<<4)); // Limpio bandera de interrupcion por P0.6
+	FIO_ClearInt(2,(0xF<<4)); // Limpio bandera de interrupcion por P0.6
 	return;
+}
+
+void COL0_ISR(void){
+	switch(row_value){
+	case 0 :		// [COL0;FIL0]
+		// Ingreso a funcion AFINADOR
+		printf("Columna: 0, Fila: %4d\r\n",row_value);
+	break;
+	case 1 :		// [COL0;FIL1]
+		printf("Columna: 0, Fila: %4d\r\n",row_value);
+	break;
+	case 2 :		// [COL0;FIL2]
+		printf("Columna: 0, Fila: %4d\r\n",row_value);
+	break;
+	case 3 :		// [COL0;FIL3]
+		printf("Columna: 0, Fila: %4d\r\n",row_value);
+	break; // <<---???
+	}
+}
+void COL1_ISR(void){
+	switch(row_value){
+	case 0 :		// [COL1;FIL0]
+		// -1bpm
+		// Cambiar tabla buffer con salida ciclica para DMA
+		// Redefinir TRANSFER_SIZE = # de datos de 32 bit a transferir (1 bit en 1?)
+		// 111111111000000000111111111
+		// 11111111110000000000
+		printf("Columna: 1, Fila: %4d\r\n",row_value);
+	break;
+	case 1 :		// [COL1;FIL1]
+		printf("Columna: 1, Fila: %4d\r\n",row_value);
+		// +1bpm
+	break;
+	case 2 :		// [COL1;FIL2]
+		printf("Columna: 1, Fila: %4d\r\n",row_value);
+		// -10bpm
+	break;
+	case 3 :		// [COL1;FIL3]
+		printf("Columna: 1, Fila: %4d\r\n",row_value);
+		// +10bpm
+	break;
+	}
+}
+void COL2_ISR(void){
+	switch(row_value){
+	case 0 :		// [COL2;FIL0]
+		printf("Columna: 2, Fila: %4d\r\n",row_value);
+	break;
+	case 1 :		// [COL2;FIL1]
+		printf("Columna: 2, Fila: %4d\r\n",row_value);
+	break;
+	case 2 :		// [COL2;FIL2]
+		printf("Columna: 2, Fila: %4d\r\n",row_value);
+	break;
+	case 3 :		// [COL2;FIL3]
+		printf("Columna: 2, Fila: %4d\r\n",row_value);
+	break;
+	}
+}
+void COL3_ISR(void){
+	switch(row_value){
+	case 0 :		// [COL3;FIL0]
+		printf("Columna: 3, Fila: %4d\r\n",row_value);
+	break;
+	case 1 :		// [COL3;FIL1]
+		printf("Columna: 3, Fila: %4d\r\n",row_value);
+	break;
+	case 2 :		// [COL3;FIL2]
+		printf("Columna: 3, Fila: %4d\r\n",row_value);
+	break;
+	case 3 :		// [COL3;FIL3]
+		printf("Columna: 3, Fila: %4d\r\n",row_value);
+	break;
+	}
 }
