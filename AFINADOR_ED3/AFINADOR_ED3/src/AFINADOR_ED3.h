@@ -2,6 +2,7 @@
 #define SAMP_FREQ	50000
 #define	BUFF_SIZE	50
 #define FREQ_BUFF 2
+#define BPM 16667
 
 void confGPIO(void); 		// Prototipo de la funcion de conf. de puertos
 void confADC(void); 		//Prototipo de la funcion de conf. de interrupciones externas
@@ -15,6 +16,7 @@ void COL1_ISR(void);
 void COL2_ISR(void);
 void COL3_ISR(void);
 uint32_t abs_calc(int32_t);
+void cambiarValorMetronomo(int8_t value);
 
 // Variables funcionalidad deteccion de frecuencia
 uint32_t buffer[BUFF_SIZE];

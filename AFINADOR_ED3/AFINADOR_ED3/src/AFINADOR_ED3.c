@@ -52,10 +52,10 @@ void confGPIO(void) {
 	pinsel.Funcnum = 1;			// Configuro pin P0.23 como entrada analogica para AD0.0
 	PINSEL_ConfigPin(&pinsel);	// Inicializo pin P0.23
 	pinsel.Funcnum = 0;			// Funcion MAT2.1 para salida al overrun
-	for(uint8_t i=7;i<10;i++) {
-		pinsel.Pinnum = i;		// CONEXIONES:    [P0.7 LED ROJO]    [P0.8 LED VERDE]    [P0.9 LED AMARILLO]
-		PINSEL_ConfigPin(&pinsel); 	// Inicializo pines P0.[9:7]
-		GPIO_SetDir(0,(1<<i),1); 	// Configuro pines P0.[9:7] como salidas
+	for(uint8_t i=7;i<11;i++) {
+		pinsel.Pinnum = i;		// CONEXIONES:    [P0.7 LED ROJO]    [P0.8 LED VERDE]    [P0.9 LED AMARILLO] [P0.10 BUZZER]
+		PINSEL_ConfigPin(&pinsel); 	// Inicializo pines P0.[10:7]
+		GPIO_SetDir(0,(1<<i),1); 	// Configuro pines P0.[10:7] como salidas
 	}
 
 	/**
@@ -134,6 +134,46 @@ void confTimers(void) {
 	TIM_ConfigMatch(LPC_TIM2, &match0);
 	TIM_Cmd(LPC_TIM2, ENABLE);
 	NVIC_EnableIRQ(TIMER2_IRQn);
+
+
+	/**
+	 * Configuración timer 3 match 0 y 1 (Metrónomo)
+	 * */
+
+	TIM_TIMERCFG_Type timer3;
+	TIM_MATCHCFG_Type match1;
+	timer3.PrescaleOption = TIM_PRESCALE_USVAL;
+	timer3.PrescaleValue = 100;
+	/**
+	 * Ti = TPR*(MR+1) = TPR * (MR+1) = 400.000us = 100 * (3999 + 1) = 400.000us
+	 * TPR = 100
+	 * MR = 3999
+	 * */
+	TIM_Init(LPC_TIM3,TIM_TIMER_MODE, &timer3);
+	match0.MatchChannel = 0;
+	match0.MatchValue = 3999;
+	match0.IntOnMatch = ENABLE;
+	match0.StopOnMatch = DISABLE;
+	match0.ResetOnMatch = DISABLE;
+	match0.ExtMatchOutputType = TIM_EXTMATCH_NOTHING; //no voy a usar el toggle del timer, necesito más control
+	TIM_ConfigMatch(LPC_TIM3, &match0);
+	/**
+	 * Degault de 100bpm
+	 * Ti = TPR*(MR+1) = TPR * (MR+1) = 600.000us = 100 * (5999 + 1) = 600.000us
+	 * TPR = 100
+	 * MR = 5999
+	 * */
+	match1.MatchChannel = 1;
+	match1.MatchValue = 5999;
+	match1.IntOnMatch = ENABLE;
+	match1.StopOnMatch = DISABLE;
+	match1.ResetOnMatch = ENABLE;
+	match1.ExtMatchOutputType = TIM_EXTMATCH_NOTHING;
+	TIM_ConfigMatch(LPC_TIM3, &match1);
+	TIM_ClearIntPending(LPC_TIM3, TIM_MR0_INT);
+	TIM_ClearIntPending(LPC_TIM3, TIM_MR1_INT);
+	TIM_Cmd(LPC_TIM3, ENABLE);
+	NVIC_EnableIRQ(TIMER3_IRQn);
 
 	return;
 }
@@ -311,6 +351,18 @@ void TIMER2_IRQHandler(void){
 	return;
 }
 
+void TIMER3_IRQHandler(void) {
+	//Si la interrupción se dió por match0, apago el buzzer
+	if (TIM_GetIntStatus(LPC_TIM3, TIM_MR0_INT)) {
+		LPC_GPIO0->FIOCLR |= (0x1 << 10);
+		TIM_ClearIntPending(LPC_TIM3, TIM_MR0_INT);
+	} //la interrupción la generó el match1, vuelvo a prender el buzzer
+	else {
+		LPC_GPIO0->FIOSET |= (0x1 << 10);
+		TIM_ClearIntPending(LPC_TIM3, TIM_MR1_INT);
+	}
+}
+
 /**
  * =============================================================================================================================================
  * 																		HELPER FUNCTIONS ZONE
@@ -367,18 +419,18 @@ void COL1_ISR(void){
 	switch(row_value){
 	case 0 :		// [COL1;FIL0]
 		// -1bpm
-		printf("Columna: 1, Fila: %4d\r\n",row_value);
+		cambiarValorMetronomo(-1);
 	break;
 	case 1 :		// [COL1;FIL1]
-		printf("Columna: 1, Fila: %4d\r\n",row_value);
+		cambiarValorMetronomo(1);
 		// +1bpm
 	break;
 	case 2 :		// [COL1;FIL2]
-		printf("Columna: 1, Fila: %4d\r\n",row_value);
+		cambiarValorMetronomo(-10);
 		// -10bpm
 	break;
 	case 3 :		// [COL1;FIL3]
-		printf("Columna: 1, Fila: %4d\r\n",row_value);
+		cambiarValorMetronomo(10);
 		// +10bpm
 	break;
 	}
@@ -455,6 +507,11 @@ void encenderLeds(void) {
 			GPIO_ClearValue(0, (5 << 7));			// Pongo en bajo P0.7 y P0.9
 		}
 	 }
+}
+
+void cambiarValorMetronomo(int8_t value) {
+	uint32_t matchValue = LPC_TIM3->MR1 + BPM * value;
+	TIM_UpdateMatchValue(LPC_TIM3, 1, matchValue);
 }
 
 /**
