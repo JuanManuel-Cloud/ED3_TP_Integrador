@@ -18,9 +18,8 @@
 #include "lpc17xx_pinsel.h"
 
 void confGPIO(void); 		// Prototipo de la funcion de conf. de puertos
-//void confADC(void); 		//Prototipo de la funcion de conf. de interrupciones externas
 void confTimers(void); 		// Prototipo de la funcion de conf. de timer
-void confIntGPIO(void);
+void confIntGPIO(void);     // pROTOTI
 void Push_Response(void);
 void COL0_ISR(void);
 void COL1_ISR(void);
