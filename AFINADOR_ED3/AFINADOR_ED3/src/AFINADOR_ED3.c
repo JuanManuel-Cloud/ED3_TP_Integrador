@@ -18,19 +18,26 @@
 
 int main(void) {
 	confGPIO();
-	confIntGPIO();
 	confUart();
 	confTimers();
 	confADC();
+	SYSTICK_InternalInit(20);    // Inicializo para interrumpir cada 20 ms, con el clock interno: SystemCoreClock
+	SYSTICK_IntCmd(ENABLE);      // Habilito interrupciones por systick
+	confIntGPIO();
 
-	GPIO_ClearValue(0,(0xB80<<7));	// Inicializo en bajo salidas P0.11 y P0.[9:7] con 1011_1000_0000 = 0xB80
 
-	NVIC_EnableIRQ(ADC_IRQn);           // Habilito interrupciones por ADC
+	GPIO_ClearValue(0,(0x380<<7));	// Inicializo en bajo salidas P0.[9:7] con 0011_1000_0000 = 0xB80
+
+	NVIC_SetPriority(ADC_IRQn,5);
+	NVIC_SetPriority(EINT3_IRQn,2);
+
+	NVIC_EnableIRQ(EINT3_IRQn); 	// Habilito interrupciones por GPIO
+	NVIC_EnableIRQ(ADC_IRQn);       // Habilito interrupciones por ADC
+
+
 
     while(1) {
-    	if(det_freq != old_det_freq){
-    		printf("%d\r\n",det_freq);
-    	}
+
     }
     return 0 ;
 }
@@ -63,11 +70,11 @@ void confGPIO(void) {
 	 * */
 
 	PINSEL_CFG_Type Pinsel_UART;
-	Pinsel_UART.Funcnum = 1;			// Funcion 01: (Tx y Rx)
+	Pinsel_UART.Funcnum = 1;		// Funcion 01: (Tx y Rx)
 	Pinsel_UART.OpenDrain = 0;		// OD desactivado
-	Pinsel_UART.Pinmode = 0;			// Pull-Up
+	Pinsel_UART.Pinmode = 0;		// Pull-Up
 	Pinsel_UART.Pinnum = 2;			// P0.2 para Tx (Conectar cable Blanco)
-	Pinsel_UART.Portnum = 0;			// Puerto 0
+	Pinsel_UART.Portnum = 0;		// Puerto 0
 	PINSEL_ConfigPin(&Pinsel_UART);
 	Pinsel_UART.Pinnum = 3;			// P0.3 para Rx (Conectar cable Verde)
 	PINSEL_ConfigPin(&Pinsel_UART);
@@ -96,14 +103,14 @@ void confGPIO(void) {
 
 void confTimers(void) {
 	/**
-	 * Configuraciones Timer 0 match 1
+	 * Configuraciones Timer 0 Match 1 para ejecutar conversiones ADC
 	 * */
-
 	TIM_TIMERCFG_Type timer;
 	TIM_MATCHCFG_Type match;
-	timer.PrescaleOption = TIM_PRESCALE_USVAL;
-	timer.PrescaleValue = 2;
-	// MR1 configurado en 5 (Ti = TPR*(MR+1) = 2us*5 = 10us) => Muestreo cada 20us => Fs = 50kHz
+	LPC_SC->PCLKSEL0  |= 0x4; // Selecciono inicialmente PCLK = CCLK
+	timer.PrescaleOption = TIM_PRESCALE_TICKVAL;
+	timer.PrescaleValue = 249; // TPR = (PR+1)/PCLK
+	// MR1 configurado en 5 (Ti = TPR*(MR+1) = 2.5us*5 = 12.5us) => Muestreo cada 25us => Fs = 40kHz
 	TIM_Init(LPC_TIM0,TIM_TIMER_MODE,&timer);
 	match.MatchChannel = 1;
 	match.MatchValue = 4;
@@ -116,13 +123,13 @@ void confTimers(void) {
 	TIM_Cmd(LPC_TIM0,ENABLE);
 
 	/**
-	 * Configuraciones Timer 2 match 0
+	 * Configuraciones Timer 2 match 0 para desplazamiento de bits en Teclado
 	 * */
 
 	TIM_TIMERCFG_Type timer2;
 	TIM_MATCHCFG_Type match0;
 	timer2.PrescaleOption = TIM_PRESCALE_USVAL;
-	timer2.PrescaleValue = 85;
+	timer2.PrescaleValue = 90;
 	// MR1 (Ti = TPR*(MR+1) = 40us*1000 = 40ms)
 	TIM_Init(LPC_TIM2,TIM_TIMER_MODE, &timer2);
 	match0.MatchChannel = 0;
@@ -142,15 +149,14 @@ void confIntGPIO(void){
 	//Interrupciones para el teclado
 	FIO_IntCmd(2,(0xF<<4),1); 	// Inicializo interrupciones por flanco descendente en P2.[7:4]
 	FIO_ClearInt(2,(0xF<<4));	// Limpio bandera de interrupcion en P2.[7:4] antes de habilitarlas
-	NVIC_EnableIRQ(EINT3_IRQn); // Habilito interrupciones por GPIO
 	return;
 }
 
 void confADC(void){
-	ADC_Init(LPC_ADC,192307); // Energizo el ADC, Habilito el ADC bit PDN y Selecciono divisor de clock que llega al periferico como: CCLK/8
+	ADC_Init(LPC_ADC,190000); // Energizo el ADC, Habilito el ADC bit PDN y Selecciono divisor de clock que llega al periferico como: CCLK/8
 	ADC_ChannelCmd(LPC_ADC,ADC_CHANNEL_0,ENABLE); // Canal AD0.1 seleccionado desde el reset (0x01)
 	ADC_ChannelCmd(LPC_ADC,ADC_CHANNEL_1,DISABLE); // Canal AD0.1 seleccionado desde el reset (0x01)
-	//	ADC_BurstCmd(LPC_ADC,0);                // Anulo bit 16 para seleccionar: Modo NO burst
+	ADC_BurstCmd(LPC_ADC,0);                // Anulo bit 16 para seleccionar: Modo NO burst
 	ADC_StartCmd(LPC_ADC,ADC_START_ON_MAT01);     // Configuro conversion ante MAT0.1 (REGISTRO MR1 DE TIMER0)
 	ADC_EdgeStartConfig(LPC_ADC,1);			// Un 1 en bit 27 significa comienza por FLANCO DESCENDENTE en EMR1
 	ADC_IntConfig(LPC_ADC,ADC_ADINTEN0,1);   // Habilito interrupciones por canal AD0.0
@@ -175,33 +181,27 @@ void confUart(void) {
  * =============================================================================================================================================
  * */
 
-void EINT3_IRQHandler(void){
-	NVIC_DisableIRQ(EINT3_IRQn); // Deshabilito interrupcion por EINT3
-	SYSTICK_InternalInit(20);    // Inicializo para interrumpir cada 20 ms, con el clock interno: SystemCoreClock
-	SysTick->VAL = 0;            // Valor inicial de cuenta en 0
-	SYSTICK_ClearCounterFlag();  // Anulo flag de fin de cuenta
-	SYSTICK_IntCmd(ENABLE);      // Habilito interrupciones por systick
-	SYSTICK_Cmd(ENABLE);		// Habilito la cuenta del systick
-	FIO_ClearInt(2,(0xF<<4)); // Limpio bandera de interrupcion por P0.6
-	return;
-}
-
 void ADC_IRQHandler(void) {
 	adcValue = ADC_ChannelGetData(LPC_ADC,0);
-	buffer[aux] = adcValue;
-
-	//============== COMIENZO FILTRO 1 ========================
-
-	for(uint32_t k = 0; k < BUFF_SIZE; k++){
-		parc_sum += buffer[k];
-	}
-	aux++;
-
-	if(aux >= BUFF_SIZE) aux = 0; //cuando superemos el nivel del buffer empezamos a pisar la pos 0 y continuamos
 
 	old_sample_filt = current_sample_filt;
-	current_sample_filt = parc_sum / BUFF_SIZE;
-	parc_sum = 0;
+	current_sample_filt = adcValue;
+
+
+	//============== COMIENZO FILTRO 1 ========================
+//
+//	buffer[aux] = adcValue;
+//
+//	for(uint32_t k = 0; k < BUFF_SIZE; k++){
+//		parc_sum += buffer[k];
+//	}
+//	aux++;
+//
+//	if(aux >= BUFF_SIZE) aux = 0; //cuando superemos el nivel del buffer empezamos a pisar la pos 0 y continuamos
+//
+//	old_sample_filt = current_sample_filt;
+//	current_sample_filt = parc_sum / BUFF_SIZE;
+//	parc_sum = 0;
 
 	//============== FIN FILTRO 1 ========================
 
@@ -222,23 +222,36 @@ void ADC_IRQHandler(void) {
 
 	sample_count ++;
 
-	if(is_crossing && ((falling_sample - rising_sample) != 0)) {
-		old_det_freq = det_freq;
+	if(is_crossing && (abs(falling_sample - rising_sample) != 0)) {
 
-		det_freq = SAMP_FREQ / (2 * abs(falling_sample - rising_sample)); // Tsamp*num_samp_rise_fall = Tdet
+//		freq_buff[aux_freq] = 16*(SAMP_FREQ / (2 * abs(falling_sample - rising_sample))); // Tsamp*num_samp_rise_fall = Tdet;
+//
+//		for(uint32_t j=0;j<FREQ_BUFF;j++){
+//			if((freq_buff[j] < freq_buff[aux_freq]) && (freq_buff[j] < det_freq_aux)){
+//				det_freq_aux = freq_buff[j]; // Se asigna cada vez que el elemento j del buffer es menor que el detectado y menor que el anterior
+//			}
+//		}
+
+		old_det_freq = det_freq;
+		det_freq = 16*(SAMP_FREQ / (2 * abs(falling_sample - rising_sample))); // Tsamp*num_samp_rise_fall = Tdet;
+
+		//		aux_freq++;
+//		if(aux_freq >= FREQ_BUFF) aux_freq=0;
 
 		//============== COMIENZO FILTRO 2 ========================
 
-//			for(uint32_t j=0;j<FREQ_BUFF;j++){
-//				parc_sum_freq += freq_buff[j];
-//			}
-//			aux_freq++;
+//		freq_buff[aux_freq] = SAMP_FREQ / (2 * abs(falling_sample - rising_sample)); // Tsamp*num_samp_rise_fall = Tdet
 //
-//			if(aux_freq >= FREQ_BUFF) aux_freq=0;
-
-//			old_det_freq = det_freq;
-//			det_freq = parc_sum_freq / FREQ_BUFF;
-//			parc_sum_freq = 0;
+//		for(uint32_t j=0;j<FREQ_BUFF;j++){
+//			parc_sum_freq += freq_buff[j];
+//		}
+//		aux_freq++;
+//
+//		if(aux_freq >= FREQ_BUFF) aux_freq=0;
+//
+//		old_det_freq = det_freq;
+//		det_freq = parc_sum_freq / FREQ_BUFF;
+//		parc_sum_freq = 0;
 
 		//============== FIN FILTRO 2 ========================
 
@@ -246,66 +259,88 @@ void ADC_IRQHandler(void) {
 
 		//TODO: REVISAR ESTA FUNCIÓN, XQ' ESPERA CHAR* Y LE PASAMOS STRING, POR LO QUE DEBE HACER UN CASTEO INTERNO, ¿USA ASCII? ¿EXPLICA PROBLEMAS?
 
-		sprintf(UART_array,"%4d\r\n", det_freq); // seteo el formato para el envío de datos de la freq det y lo guardo en el array
-		UART_Send(LPC_UART0, UART_array, sizeof(UART_array), BLOCKING); // envío el bloque de datos en forma de bloques
+//		sprintf(UART_array,"%d\r\n", det_freq); // seteo el formato para el envío de datos de la freq det y lo guardo en el array
+//		UART_Send(LPC_UART0, UART_array, sizeof(UART_array), BLOCKING); // envío el bloque de datos en forma de bloques
 
 		//============== FIN UART =======================
 	}
 
+//	sprintf(UART_array,"%d\r\n",current_sample_filt); // seteo el formato para el envío de datos de la freq det y lo guardo en el array
+//	UART_Send(LPC_UART0, UART_array, sizeof(UART_array), BLOCKING); // envío el bloque de datos en forma de bloques
+
 	is_crossing = 0;
 	
-	encenderLeds();
+//	testFlagLED();
 
+//	ADC_GlobalGetStatus(LPC_ADC,0);
+//	ADC_GlobalGetStatus(LPC_ADC,1);
 	return;
 }
 
 /**
- * Systema antirebotes
+ * Sistema antirrebotes utilizando SysTick
  * */
 
+void EINT3_IRQHandler(void){
+	NVIC_DisableIRQ(EINT3_IRQn); 	// Deshabilito interrupcion por EINT3
+	NVIC_DisableIRQ(ADC_IRQn);  	// Deshabilito interrupcion por ADC
+
+	SysTick->VAL = 0;            	// Valor inicial de cuenta en 0
+	SysTick->CTRL &= SysTick->CTRL; // Anulo flag de fin de cuenta
+
+	SYSTICK_Cmd(ENABLE);		 	// Habilito la cuenta del systick
+
+	return;
+}
+
 void SysTick_Handler(void){
-	if( ~((GPIO_ReadValue(2)) & (0xF<<4)) & (0xF<<4) ){  // Operador logico para determinar si P2.[7:4] sigue presionado
-		test_count ++ ;             // Si sigue presionado se incrementa variable test_count
-		if(test_count == 3){        // Si se incremento 3 veces, se ingresa al switch(counter)
-			push_response(); //
-			SysTick->CTRL &= SysTick->CTRL; // Anulo flag de fin de cuenta
+	port2GlobalInt = GPIO_GetIntStatus(2,4,1) | GPIO_GetIntStatus(2,5,1) | GPIO_GetIntStatus(2,6,1) | GPIO_GetIntStatus(2,7,1);
+
+	if(port2GlobalInt){
+		test_count ++ ;             	// Si sigue presionado se incrementa variable test_count
+		if(test_count == 3){        	// Si se incremento 3 veces, se ingresa al switch(counter)
+			push_response();
 			SYSTICK_Cmd(DISABLE);
-			NVIC_EnableIRQ(EINT3_IRQn);     // Vuelvo a habilitar interrupciones por EINT3
-			test_count=0;                   // Anulo variable test_count para proximo antirrebote
+			FIO_ClearInt(2,(0xF<<4));	// Limpio bandera de interrupcion en P2.[7:4] antes de habilitarlas
+			NVIC_EnableIRQ(ADC_IRQn);   // Deshabilito interrupcion por ADC
+			NVIC_EnableIRQ(EINT3_IRQn); // Vuelvo a habilitar interrupciones por EINT3
+			test_count = 0;             // Anulo variable test_count para proximo antirrebote
 		}
 		else{} // Si no se incremento test_count 3 veces, pero sigue presionado el pulsador no se hace nada.
 	}
 	else{
-		SysTick->CTRL &= SysTick->CTRL;  // Anulo flag de fin de cuenta
+
 		SYSTICK_Cmd(DISABLE);
+		FIO_ClearInt(2,(0xF<<4));	// Limpio bandera de interrupcion en P2.[7:4] antes de habilitarlas
+		NVIC_EnableIRQ(ADC_IRQn);   // Deshabilito interrupcion por ADC
 		NVIC_EnableIRQ(EINT3_IRQn);   // Vuelvo a habilitar interrupciones por EINT3
 		test_count = 0; // Si no se incremento el test_count 3 veces, pero se solto el pulsador, se anula variable test_count para proximo antirrebote.
 	}
-	FIO_ClearInt(2,(0xF<<4));	// Limpio bandera de interrupcion en P2.[7:4] antes de habilitarlas
-	SYSTICK_ClearCounterFlag();
+	SysTick->CTRL &= SysTick->CTRL; // Anulo flag de fin de cuenta
 	return;
 }
 
 void TIMER2_IRQHandler(void){
-	//Atencion a rutina timer, SHIFTREGISTER en filas de teclado matricial
-
-	switch(row_value){
-	case 0 :
-		LPC_GPIO2->FIOPIN = 0x7; // 0111
-		row_value = 3;
-		break; // row_value sale valiendo 0
-	case 3:
-		LPC_GPIO2->FIOPIN = 0xB; // 1011
-		row_value--; // row_value sale valiendo 1
-		break;
-	case 2:
-		LPC_GPIO2->FIOPIN = 0xD; // 1101
-		row_value--; // row_value sale valiendo 2
-		break;
-	case 1:
-		LPC_GPIO2->FIOPIN = 0xE; // 1110
-		row_value--; // row_value sale valiendo 3
-		break;
+	//Atencion a rutina Timer 2, SHIFTREGISTER en filas de teclado matricial
+	if(!(~(GPIO_ReadValue(2) | ~(0xF0) ))){ // Solo ejecuto desplazamiento cuando no se esta presionando ninguna tecla
+		switch(row_value){
+		case 0 :
+			LPC_GPIO2->FIOPIN = 0x7; // 0111
+			row_value = 3;
+			break; // row_value sale valiendo 0
+		case 3:
+			LPC_GPIO2->FIOPIN = 0xB; // 1011
+			row_value--; // row_value sale valiendo 1
+			break;
+		case 2:
+			LPC_GPIO2->FIOPIN = 0xD; // 1101
+			row_value--; // row_value sale valiendo 2
+			break;
+		case 1:
+			LPC_GPIO2->FIOPIN = 0xE; // 1110
+			row_value--; // row_value sale valiendo 3
+			break;
+		}
 	}
 	TIM_ClearIntPending(LPC_TIM2,TIM_MR0_INT);       // Anulo bandera de itnerrupcion pendiente
 	return;
@@ -318,26 +353,23 @@ void TIMER2_IRQHandler(void){
  * */
 
 /**
- * Está función es un pseudo handler para reponder según la tecla presionada
+ * Funcion para ordenar que codigo se ejecuta según la tecla presionada
  * */
 
 void push_response(void) {
-	switch( ~((GPIO_ReadValue(2)) & (0xF<<4)) & (0xF<<4) ){
-	case(1<<4): // P2.4
+	if(GPIO_GetIntStatus(2,4,1)){
 		COL0_ISR();
-	break;
-	case(1<<5): // P2.5
+	}
+	else if(GPIO_GetIntStatus(2,5,1)){
 		COL1_ISR();
-	break;
-	case(1<<6): // P2.6
+	}
+	else if(GPIO_GetIntStatus(2,6,1)){
 		COL2_ISR();
-	break;
-	case(1<<7): // P2.7
+	}
+	else if(GPIO_GetIntStatus(2,7,1)){
 		COL3_ISR();
-	break;
 	}
 }
-
 /**
  * Handler para teclas de la columna 0
  * */
@@ -434,7 +466,7 @@ void COL3_ISR(void){
  * Enciende el led correspondiente acorde a la afinación del instrumento
  * */
 
-void encenderLeds(void) {
+void testFlagLED(void) {
 	if(det_freq != old_det_freq) {    // CONEXIONES:    [P0.7 LED ROJO]    [P0.8 LED VERDE]    [P0.9 LED AMARILLO]
 		if(det_freq > (comp_freq + 50)) { // Si la diferencia es mayor a 50 Hz
 			// La frecuencia detectada se encuentra a mas de 50 Hz por encima de la deseada
