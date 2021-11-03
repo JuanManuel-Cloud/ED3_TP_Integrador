@@ -224,19 +224,18 @@ void ADC_IRQHandler(void) {
 
 	if(is_crossing && (abs(falling_sample - rising_sample) != 0)) {
 
-//		freq_buff[aux_freq] = 16*(SAMP_FREQ / (2 * abs(falling_sample - rising_sample))); // Tsamp*num_samp_rise_fall = Tdet;
-//
-//		for(uint32_t j=0;j<FREQ_BUFF;j++){
-//			if((freq_buff[j] < freq_buff[aux_freq]) && (freq_buff[j] < det_freq_aux)){
-//				det_freq_aux = freq_buff[j]; // Se asigna cada vez que el elemento j del buffer es menor que el detectado y menor que el anterior
-//			}
-//		}
-
+		freq_buff[aux_freq] = 16*(SAMP_FREQ / (2 * abs(falling_sample - rising_sample))); // Tsamp*num_samp_rise_fall = Tdet;
+		det_freq_aux = ~(0);
+		for(uint32_t j=0;j<FREQ_BUFF;j++){
+			if((freq_buff[j] <= det_freq_aux) && (freq_buff[j] > 0)){
+				det_freq_aux = freq_buff[j]; // Se asigna cada vez que el elemento j del buffer es menor que el detectado y menor que el anterior
+			}
+		}
 		old_det_freq = det_freq;
-		det_freq = 16*(SAMP_FREQ / (2 * abs(falling_sample - rising_sample))); // Tsamp*num_samp_rise_fall = Tdet;
+		det_freq = det_freq_aux;
 
-		//		aux_freq++;
-//		if(aux_freq >= FREQ_BUFF) aux_freq=0;
+		aux_freq++;
+		if(aux_freq >= FREQ_BUFF) aux_freq=0;
 
 		//============== COMIENZO FILTRO 2 ========================
 

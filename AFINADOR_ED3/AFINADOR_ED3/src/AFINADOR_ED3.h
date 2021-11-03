@@ -1,7 +1,7 @@
 
 #define SAMP_FREQ	40000
 #define	BUFF_SIZE	15
-#define FREQ_BUFF 8
+#define FREQ_BUFF 15
 
 void confGPIO(void); 		// Prototipo de la funcion de conf. de puertos
 void confADC(void); 		//Prototipo de la funcion de conf. de interrupciones externas
