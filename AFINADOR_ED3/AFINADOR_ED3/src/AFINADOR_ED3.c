@@ -169,7 +169,7 @@ void confTimers(void) {
 	 * TPR = 100
 	 * MR = 5999
 	 * */
-	TIM_MATCHCFG_Type match1_Metronomo;
+	// TIM_MATCHCFG_Type match1_Metronomo; definida global para modificarla al cambiar los bpm
 	match1_Metronomo.MatchChannel = 1;
 	match1_Metronomo.MatchValue = 5999;
 	match1_Metronomo.IntOnMatch = ENABLE;
@@ -482,7 +482,7 @@ void testFlagLED(void) {
 	}
 }
 void modifyBPM(int8_t value) {
-	uint32_t matchValue;
+
 	if(value < 5){
 		index += value;
 		if(index >= 10){
@@ -496,6 +496,7 @@ void modifyBPM(int8_t value) {
 		index = value;
 	}
 	matchValue = bpmTable[index];
-	TIM_UpdateMatchValue(LPC_TIM3, 1, matchValue);
+	match1_Metronomo.MatchValue = matchValue;
+	TIM_ConfigMatch(LPC_TIM3, &match1_Metronomo);	// Configuro MATCH 1
 	return;
 }

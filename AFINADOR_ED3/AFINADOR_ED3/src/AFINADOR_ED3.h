@@ -16,7 +16,9 @@ void COL2_ISR(void);
 void COL3_ISR(void);
 void modifyBPM(int8_t value);
 
+TIM_MATCHCFG_Type match1_Metronomo;
 int8_t index = 5;
+uint32_t matchValue;
 uint32_t bpmTable[11] = {
 		19999,9999,8570,7500,6666,
 		5999,5454,4999,4614,4285,3999
