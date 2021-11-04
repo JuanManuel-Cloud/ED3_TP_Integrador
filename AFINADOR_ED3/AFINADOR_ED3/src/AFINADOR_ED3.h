@@ -8,6 +8,7 @@ void confADC(void); 		//Prototipo de la funcion de conf. de interrupciones exter
 void confTimers(void); 		// Prototipo de la funcion de conf. de timer
 void confIntGPIO(void);
 void confUart(void);
+//void confDMA(void);
 void push_response(void);
 void testFlagLED(void);
 void COL0_ISR(void);
@@ -24,7 +25,13 @@ uint32_t bpmTable[11] = {
 		5999,5454,4999,4614,4285,3999
 };
 
-uint32_t abs_calc(int32_t);
+GPDMA_Channel_CFG_Type GPDMA_Struct;
+char str_send_package[250];
+char str_header[50];
+char str_comp_freq[50];
+char str_error_margin[50];
+char str_det_freq[50];
+char str_diff_freq[50];
 
 // Variables funcionalidad deteccion de frecuencia
 

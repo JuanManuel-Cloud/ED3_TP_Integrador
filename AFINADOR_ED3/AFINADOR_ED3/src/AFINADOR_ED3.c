@@ -7,14 +7,17 @@
 */
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include "LPC17xx.h"
 #include "lpc17xx_adc.h"
 #include "lpc17xx_timer.h"
 #include "lpc17xx_gpio.h"
 #include "lpc17xx_pinsel.h"
 #include "lpc17xx_uart.h"
+#include "lpc17xx_gpdma.h"
 #include "lpc17xx_systick.h"
 #include "AFINADOR_ED3.h"
+
 
 int main(void) {
 	confGPIO();
@@ -24,12 +27,35 @@ int main(void) {
 	confIntGPIO();
 
 	GPIO_ClearValue(0,(0x380<<7));	// Inicializo en bajo salidas P0.[9:7] con 0011_1000_0000 = 0xB80
+/*
+	sprintf(str_header,"\n\t\tESTADO ACTUAL DE FUNCIONAMIENTO: \r\n\n\n");
+	sprintf(str_comp_freq,"\tSe encuentra afinando en %d Hz\r\n\n",comp_freq);
+	sprintf(str_error_margin,"\tCon un margen de error de %d Hz\r\n\n",error_margin);
+	sprintf(str_det_freq,"\tLa ultima frecuencia detectada fue de %d Hz\r\n\n",det_freq);
+	sprintf(str_diff_freq,"\tPara alcanzar la frecuencia deseada, ajuste el instrumento en: %d Hz\r\n\n",(comp_freq-det_freq));
 
+	strcat(str_send_package,str_header);
+	strcat(str_send_package,str_comp_freq);
+	strcat(str_send_package,str_error_margin);
+	strcat(str_send_package,str_det_freq);
+	strcat(str_send_package,str_diff_freq);
+
+//	sprintf(&sendPackage[8],"fhdfgh"); Reemplaza a partir de la ubicacion 8
+
+	printf(str_send_package);
+	char str_aux[5];
+	sprintf(str_aux,"%d",130);
+
+	str_send_package[66] = str_aux;
+
+	printf(str_send_package);
+*/
 	NVIC_SetPriority(ADC_IRQn,5);
 	NVIC_SetPriority(EINT3_IRQn,2);
 	NVIC_EnableIRQ(EINT3_IRQn); 	// Habilito interrupciones por GPIO
 
     while(1) {
+
     }
     return 0 ;
 }
@@ -205,6 +231,45 @@ void confUart(void) {
 	UART_TxCmd(LPC_UART0, ENABLE);
 	return;
 }
+/*
+void confDMA(void){
+	GPDMA_LLI_Type DMA_LLI_Struct;
+	//Prepare DMA link list item structure
+	DMA_LLI_Struct.SrcAddr= (char)str_send_package;
+	DMA_LLI_Struct.DstAddr= (char)&(LPC_UART0->THR);
+	DMA_LLI_Struct.NextLLI= 0;
+	DMA_LLI_Struct.Control= dmaSize;
+			| (2<<18) //source width 32 bit
+			| (2<<21) //dest. width 32 bit
+			| (1<<26) //source increment
+			;
+	// GPDMA block section --------------------------------------------
+	// Initialize GPDMA controller
+	GPDMA_Init();
+	// Setup GPDMA channel --------------------------------
+	// channel 0
+	GPDMA_Struct.ChannelNum = 0;
+	// Source memory
+	GPDMA_Struct.SrcMemAddr = (uint32_t)(str_send_package);
+	// Destination memory - unused
+	GPDMA_Struct.DstMemAddr = 0;
+	// Transfer size
+	GPDMA_Struct.TransferSize = DMA_SIZE;
+	// Transfer width - unused
+	GPDMA_Struct.TransferWidth = 0;
+	// Transfer type
+	GPDMA_Struct.TransferType = GPDMA_TRANSFERTYPE_M2P;
+	// Source connection - unused
+	GPDMA_Struct.SrcConn = 0;
+	// Destination connection
+	GPDMA_Struct.DstConn = GPDMA_CONN_DAC;
+	// Linker List Item - unused
+	GPDMA_Struct.DMALLI = (uint32_t)&DMA_LLI_Struct;
+	// Setup channel with given parameter
+	GPDMA_Setup(&GPDMA_Struct);
+	return;
+}
+*/
 /**
  * =============================================================================================================================================
  * 																		HANDLER ZONE
