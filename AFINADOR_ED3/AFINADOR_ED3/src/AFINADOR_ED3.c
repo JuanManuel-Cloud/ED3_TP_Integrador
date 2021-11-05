@@ -29,10 +29,10 @@ int main(void) {
 	GPIO_ClearValue(0,(0x380<<7));	// Inicializo en bajo salidas P0.[9:7] con 0011_1000_0000 = 0xB80
 /*
 	sprintf(str_header,"\n\t\tESTADO ACTUAL DE FUNCIONAMIENTO: \r\n\n\n");
-	sprintf(str_comp_freq,"\tSe encuentra afinando en %d Hz\r\n\n",comp_freq);
-	sprintf(str_error_margin,"\tCon un margen de error de %d Hz\r\n\n",error_margin);
-	sprintf(str_det_freq,"\tLa ultima frecuencia detectada fue de %d Hz\r\n\n",det_freq);
-	sprintf(str_diff_freq,"\tPara alcanzar la frecuencia deseada, ajuste el instrumento en: %d Hz\r\n\n",(comp_freq-det_freq));
+	sprintf(str_comp_freq,"\tSe encuentra afinando en      Hz\r\n\n");
+	sprintf(str_error_margin,"\tCon un margen de error de       Hz\r\n\n");
+	sprintf(str_det_freq,"\tLa ultima frecuencia detectada fue de       Hz\r\n\n");
+	sprintf(str_diff_freq,"\tPara alcanzar la frecuencia deseada, ajuste el instrumento en:       Hz\r\n\n");
 
 	strcat(str_send_package,str_header);
 	strcat(str_send_package,str_comp_freq);
@@ -41,13 +41,7 @@ int main(void) {
 	strcat(str_send_package,str_diff_freq);
 
 //	sprintf(&sendPackage[8],"fhdfgh"); Reemplaza a partir de la ubicacion 8
-
-	printf(str_send_package);
-	char str_aux[5];
-	sprintf(str_aux,"%d",130);
-
-	str_send_package[66] = str_aux;
-
+	catFrecValue();
 	printf(str_send_package);
 */
 	NVIC_SetPriority(ADC_IRQn,5);
@@ -402,6 +396,11 @@ void TIMER3_IRQHandler(void) {
 		TIM_ClearIntPending(LPC_TIM3, TIM_MR1_INT);
 	}
 }
+/*
+void DMA_IRQHandler(void) {
+
+}
+*/
 /**
  * =============================================================================================================================================
  * 																		HELPER FUNCTIONS ZONE
@@ -482,7 +481,14 @@ void COL2_ISR(void){
 		printf("Columna: 2, Fila: %d\r\n",row_value);
 	break;
 	case 2 :		// [COL2;FIL2]
-		printf("Columna: 2, Fila: %d\r\n",row_value);
+/*		printf("Columna: 2, Fila: %d\r\n",row_value);
+		NVIC_DisableIRQ(ADC_IRQn);		// Inhabilito conversor ADC
+		TIM_Cmd(LPC_TIM3,DISABLE);			// Reinicio y freno contador de TIMER3
+		NVIC_DisableIRQ(TIMER3_IRQn);		// Inhabilito interrupciones por TIMER3
+		LPC_GPIO0->FIOCLR |= (0x1 << 10);	// Aseguro que BUZZER quede apagado
+		NVIC_EnableIRQ(DMA_IRQn);
+		catFrecValue();
+		GPDMA_ChannelCmd(0, ENABLE);*/
 	break;
 	case 3 :		// [COL2;FIL3] = BOTON #
 		printf("Columna: 2, Fila: %d\r\n",row_value);
@@ -493,6 +499,7 @@ void COL2_ISR(void){
 	break;
 	}
 }
+
 /**
  * Handler para teclas de la columna 3 (Selección de frecuencias de referencia)
  * */
@@ -520,7 +527,7 @@ void COL3_ISR(void){
 		comp_freq = 903; 	// Cuando generador en 1000
 	break;
 	}
-	error_margin = comp_freq/3;
+	error_margin = comp_freq/5;
 }
 /**
  * Enciende el led correspondiente acorde a la afinación del instrumento
@@ -565,3 +572,14 @@ void modifyBPM(int8_t value) {
 	TIM_ConfigMatch(LPC_TIM3, &match1_Metronomo);	// Configuro MATCH 1
 	return;
 }
+/*
+void catFrecValue() {
+	char *str_aux = "     ";
+	sprintf(str_aux,"%d",comp_freq);
+	for(uint8_t i = 0; i < FREQ_CHAR; i++) {
+		if (i > FREQ_CHAR - sizeof(str_aux) && str_aux[i] != '\0')
+			str_send_package[i + COMP_FREQ_POS] = (char) str_aux[i];
+		else
+			str_send_package[i + COMP_FREQ_POS] = ' ';
+	}
+}*/

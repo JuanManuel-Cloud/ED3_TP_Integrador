@@ -1,6 +1,7 @@
 
 #define SAMP_FREQ	40000
-
+#define FREQ_CHAR 5
+#define COMP_FREQ_POS 66
 #define FREQ_BUFF   15
 
 void confGPIO(void); 		// Prototipo de la funcion de conf. de puertos
@@ -16,6 +17,7 @@ void COL1_ISR(void);
 void COL2_ISR(void);
 void COL3_ISR(void);
 void modifyBPM(int8_t value);
+void catFrecValue();
 
 TIM_MATCHCFG_Type match1_Metronomo;
 int8_t index = 5;
