@@ -1,7 +1,7 @@
 /*
 ===============================================================================
  Name        : AFINADOR_ED3.c
- Author      : Magnelli Tomas, Muñoz Jose Irigoin, Gil Juan Manuel.
+ Author      : Magnelli Tomas, Irigoin Muñoz Jose, Gil Juan Manuel.
  Consigna :
 ===============================================================================
 */
@@ -18,33 +18,60 @@
 #include "lpc17xx_systick.h"
 #include "AFINADOR_ED3.h"
 
-
 int main(void) {
 	confGPIO();
 	confUart();
 	confTimers();
 	confADC();
 	confIntGPIO();
+	confDMA();
 
 	GPIO_ClearValue(0,(0x380<<7));	// Inicializo en bajo salidas P0.[9:7] con 0011_1000_0000 = 0xB80
-/*
-	sprintf(str_header,"\n\t\tESTADO ACTUAL DE FUNCIONAMIENTO: \r\n\n\n");
-	sprintf(str_comp_freq,"\tSe encuentra afinando en      Hz\r\n\n");
-	sprintf(str_error_margin,"\tCon un margen de error de       Hz\r\n\n");
-	sprintf(str_det_freq,"\tLa ultima frecuencia detectada fue de       Hz\r\n\n");
-	sprintf(str_diff_freq,"\tPara alcanzar la frecuencia deseada, ajuste el instrumento en:       Hz\r\n\n");
 
-	strcat(str_send_package,str_header);
+	//sprintf(str_header,"\n============================ BIENVENIDO A AFINADOR APP =============================\n");
+	// COMPLETAR E IMPRIMIR 1 VEZ AL COMIENZO********************************
+
+	sprintf(str_header_afinador,"\n===================================== AFINADOR =============================\r\n");
+	sprintf(str_afinador_state,"\n\tSe encuentra en estado        \r\n\n");
+	sprintf(str_comp_freq,"\tSe encuentra afinando en        Hz\r\n\n");
+	sprintf(str_error_margin,"\tCon un margen de error de         Hz\r\n\n");
+	sprintf(str_det_freq,"\tLa ultima frecuencia detectada fue de         Hz\r\n\n");
+	sprintf(str_diff_freq,"\tPara alcanzar la frecuencia deseada, ajuste el instrumento en          Hz\r\n\n");
+
+	sprintf(str_header_met,"\n===================================== METRONOMO ============================\t\t\t\t\t\r\n");
+	sprintf(str_bpm_state,"\n\tSe encuentra en estado        \r\n");
+	sprintf(str_bpm_value,"\tConfigurado en        bpm\t\r\n");
+
+	strcat(str_send_package,str_header_afinador);
+	strcat(str_send_package,str_afinador_state);
 	strcat(str_send_package,str_comp_freq);
 	strcat(str_send_package,str_error_margin);
 	strcat(str_send_package,str_det_freq);
 	strcat(str_send_package,str_diff_freq);
+	strcat(str_send_package,str_header_met);
+	strcat(str_send_package,str_bpm_state);
+	strcat(str_send_package,str_bpm_value);
 
 //	sprintf(&sendPackage[8],"fhdfgh"); Reemplaza a partir de la ubicacion 8
-	catFrecValue();
-	printf(str_send_package);
+/*	for(uint8_t k=0;k<4;k++){
+		comp_freq = comp_freq/(k + 1);
+		error_margin = error_margin/(k + 1);
+		det_freq = det_freq/(k + 1);
+		index += 1;
+		if(k%2) {
+			NVIC_EnableIRQ(TIMER3_IRQn);
+			NVIC_DisableIRQ(ADC_IRQn);
+		}
+		else {
+			NVIC_DisableIRQ(TIMER3_IRQn);
+			NVIC_EnableIRQ(ADC_IRQn);
+		}
+		catFrecValue();
+		printf(str_send_package);
+	}
 */
 	NVIC_SetPriority(ADC_IRQn,5);
+	NVIC_SetPriority(TIMER3_IRQn,4);
 	NVIC_SetPriority(EINT3_IRQn,2);
 	NVIC_EnableIRQ(EINT3_IRQn); 	// Habilito interrupciones por GPIO
 
@@ -225,16 +252,15 @@ void confUart(void) {
 	UART_TxCmd(LPC_UART0, ENABLE);
 	return;
 }
-/*
 void confDMA(void){
 	GPDMA_LLI_Type DMA_LLI_Struct;
 	//Prepare DMA link list item structure
-	DMA_LLI_Struct.SrcAddr= (char)str_send_package;
-	DMA_LLI_Struct.DstAddr= (char)&(LPC_UART0->THR);
-	DMA_LLI_Struct.NextLLI= 0;
-	DMA_LLI_Struct.Control= dmaSize;
-			| (2<<18) //source width 32 bit
-			| (2<<21) //dest. width 32 bit
+	DMA_LLI_Struct.SrcAddr= (uint32_t)str_send_package;
+	DMA_LLI_Struct.DstAddr= (uint32_t)&(LPC_UART0->THR);
+	DMA_LLI_Struct.NextLLI= (uint32_t)str_send_package;
+	DMA_LLI_Struct.Control= DMA_SIZE
+			| (0<<18) //source width 8 bit
+			| (0<<21) //dest. width 8 bit
 			| (1<<26) //source increment
 			;
 	// GPDMA block section --------------------------------------------
@@ -256,14 +282,14 @@ void confDMA(void){
 	// Source connection - unused
 	GPDMA_Struct.SrcConn = 0;
 	// Destination connection
-	GPDMA_Struct.DstConn = GPDMA_CONN_DAC;
+	GPDMA_Struct.DstConn = GPDMA_CONN_UART0_Tx;
 	// Linker List Item - unused
 	GPDMA_Struct.DMALLI = (uint32_t)&DMA_LLI_Struct;
 	// Setup channel with given parameter
 	GPDMA_Setup(&GPDMA_Struct);
 	return;
 }
-*/
+
 /**
  * =============================================================================================================================================
  * 																		HANDLER ZONE
@@ -305,18 +331,7 @@ void ADC_IRQHandler(void) {
 
 		aux_freq++;
 		if(aux_freq >= FREQ_BUFF) aux_freq=0;
-		//============== COMIENZO UART =======================
-
-		//TODO: REVISAR ESTA FUNCIÓN, XQ' ESPERA CHAR* Y LE PASAMOS STRING, POR LO QUE DEBE HACER UN CASTEO INTERNO, ¿USA ASCII? ¿EXPLICA PROBLEMAS?
-
-//		sprintf(UART_array,"%d\r\n", det_freq); // seteo el formato para el envío de datos de la freq det y lo guardo en el array
-//		UART_Send(LPC_UART0, UART_array, sizeof(UART_array), BLOCKING); // envío el bloque de datos en forma de bloques
-
-		//============== FIN UART =======================
 	}
-
-//	sprintf(UART_array,"%d\r\n",current_sample); // seteo el formato para el envío de datos de la freq det y lo guardo en el array
-//	UART_Send(LPC_UART0, UART_array, sizeof(UART_array), BLOCKING); // envío el bloque de datos en forma de bloques
 	is_crossing = 0;
 
 	if(det_freq != old_det_freq){
@@ -344,7 +359,6 @@ void SysTick_Handler(void){
 			push_response();
 			SYSTICK_Cmd(DISABLE);
 			FIO_ClearInt(2,(0xF<<4));	// Limpio bandera de interrupcion en P2.[7:4] antes de habilitarlas
-			NVIC_EnableIRQ(ADC_IRQn);   // Deshabilito interrupcion por ADC
 			NVIC_EnableIRQ(EINT3_IRQn); // Vuelvo a habilitar interrupciones por EINT3
 			test_count = 0;             // Anulo variable test_count para proximo antirrebote
 		}
@@ -353,7 +367,6 @@ void SysTick_Handler(void){
 	else{
 		SYSTICK_Cmd(DISABLE);
 		FIO_ClearInt(2,(0xF<<4));	// Limpio bandera de interrupcion en P2.[7:4] antes de habilitarlas
-		NVIC_EnableIRQ(ADC_IRQn);   // Deshabilito interrupcion por ADC
 		NVIC_EnableIRQ(EINT3_IRQn);   // Vuelvo a habilitar interrupciones por EINT3
 		test_count = 0; // Si no se incremento el test_count 3 veces, pero se solto el pulsador, se anula variable test_count para proximo antirrebote.
 	}
@@ -396,11 +409,21 @@ void TIMER3_IRQHandler(void) {
 		TIM_ClearIntPending(LPC_TIM3, TIM_MR1_INT);
 	}
 }
-/*
-void DMA_IRQHandler(void) {
+void DMA_IRQHandler(void){
+	GPDMA_ClearIntPending(GPDMA_STATCLR_INTERR,0);
+	GPDMA_ClearIntPending(GPDMA_STATCLR_INTTC,0);
+
+	NVIC_DisableIRQ(DMA_IRQn);
+
+	if(ADC_IntStatus){
+		NVIC_EnableIRQ(ADC_IRQn);
+	}
+	else if(TIMER3_IntStatus){
+		TIM_Cmd(LPC_TIM3, ENABLE);		// Inicializo TIMER3
+		NVIC_EnableIRQ(TIMER3_IRQn); 	// Habilito interrupciones por TIMER3
+	}
 
 }
-*/
 /**
  * =============================================================================================================================================
  * 																		HELPER FUNCTIONS ZONE
@@ -439,6 +462,8 @@ void COL0_ISR(void){
 	break;
 	case 3 :		// [COL0;FIL3] = BOTON *
 		printf("Columna: 0, Fila: %d\r\n",row_value);
+		ADC_IntStatus = 0;
+		TIMER3_IntStatus = 1;
 		NVIC_DisableIRQ(ADC_IRQn);		// Inhabilito conversor ADC
 		TIM_Cmd(LPC_TIM3, ENABLE);		// Inicializo TIMER3
 		NVIC_EnableIRQ(TIMER3_IRQn); 	// Habilito interrupciones por TIMER3
@@ -462,6 +487,8 @@ void COL1_ISR(void){
 	break;
 	case 3 :		// [COL1;FIL3] = BOTON 0
 		printf("Columna: 1, Fila: %d\r\n",row_value);
+		ADC_IntStatus = 0;
+		TIMER3_IntStatus = 1;
 		NVIC_DisableIRQ(ADC_IRQn);		// Inhabilito conversor ADC
 		TIM_Cmd(LPC_TIM3, ENABLE);		// Inicializo TIMER3
 		NVIC_EnableIRQ(TIMER3_IRQn); 	// Habilito interrupciones por TIMER3
@@ -481,17 +508,23 @@ void COL2_ISR(void){
 		printf("Columna: 2, Fila: %d\r\n",row_value);
 	break;
 	case 2 :		// [COL2;FIL2]
-/*		printf("Columna: 2, Fila: %d\r\n",row_value);
+		printf("Columna: 2, Fila: %d\r\n",row_value);
+
 		NVIC_DisableIRQ(ADC_IRQn);		// Inhabilito conversor ADC
 		TIM_Cmd(LPC_TIM3,DISABLE);			// Reinicio y freno contador de TIMER3
 		NVIC_DisableIRQ(TIMER3_IRQn);		// Inhabilito interrupciones por TIMER3
 		LPC_GPIO0->FIOCLR |= (0x1 << 10);	// Aseguro que BUZZER quede apagado
-		NVIC_EnableIRQ(DMA_IRQn);
+
 		catFrecValue();
-		GPDMA_ChannelCmd(0, ENABLE);*/
+		GPDMA_Setup(&GPDMA_Struct);
+		GPDMA_ChannelCmd(0, ENABLE);
+		NVIC_EnableIRQ(DMA_IRQn);
 	break;
 	case 3 :		// [COL2;FIL3] = BOTON #
 		printf("Columna: 2, Fila: %d\r\n",row_value);
+		ADC_IntStatus = 0;
+		TIMER3_IntStatus = 1;
+
 		NVIC_DisableIRQ(ADC_IRQn);		// Inhabilito conversor ADC
 		TIM_Cmd(LPC_TIM3, ENABLE);		// Inicializo TIMER3
 		NVIC_EnableIRQ(TIMER3_IRQn); 	// Habilito interrupciones por TIMER3
@@ -527,6 +560,8 @@ void COL3_ISR(void){
 		comp_freq = 903; 	// Cuando generador en 1000
 	break;
 	}
+	ADC_IntStatus = 1;
+	TIMER3_IntStatus = 0;
 	error_margin = comp_freq/5;
 }
 /**
@@ -572,14 +607,71 @@ void modifyBPM(int8_t value) {
 	TIM_ConfigMatch(LPC_TIM3, &match1_Metronomo);	// Configuro MATCH 1
 	return;
 }
-/*
-void catFrecValue() {
-	char *str_aux = "     ";
-	sprintf(str_aux,"%d",comp_freq);
-	for(uint8_t i = 0; i < FREQ_CHAR; i++) {
-		if (i > FREQ_CHAR - sizeof(str_aux) && str_aux[i] != '\0')
-			str_send_package[i + COMP_FREQ_POS] = (char) str_aux[i];
-		else
-			str_send_package[i + COMP_FREQ_POS] = ' ';
+
+void catFrecValue(void) {
+	char str_aux[6];
+	uint32_t var_sust;
+	uint32_t sust_pos;
+
+	for(uint8_t j=0;j<7;j++) {
+		switch(j) {
+			case 0:
+				if(ADC_IntStatus){
+					sprintf(str_aux,"  ON ");
+				}
+				else{
+					sprintf(str_aux," OFF ");
+				}
+				//sprintf(str_aux,"%d",var_sust);
+				sust_pos = POW_AFI_POS;
+			break;
+			case 1:
+				var_sust = comp_freq;
+				sust_pos = COMP_FREQ_POS;
+				sprintf(str_aux,"%d",var_sust);
+			break;
+			case 2:
+				var_sust = error_margin;
+				sust_pos = MARGIN_ERRROR_POS;
+				sprintf(str_aux,"%d",var_sust);
+			break;
+			case 3:
+				var_sust = det_freq;
+				sust_pos = LAST_FREQ_DET_POS;
+				sprintf(str_aux,"%d",var_sust);
+			break;
+			case 4:
+				var_sust = (comp_freq-det_freq);
+				sust_pos = DIFF_FREQ_POS;
+				sprintf(str_aux,"%d",var_sust);
+			break;
+			case 5:
+				if(TIMER3_IntStatus){
+					sprintf(str_aux,"  ON ");
+				}
+				else{
+					sprintf(str_aux," OFF ");
+				}
+				sust_pos = POW_MET_POS;
+			break;
+			case 6:
+				var_sust = bpmValueTable[index];
+				sust_pos = BPM_POS;
+				sprintf(str_aux,"%d",var_sust);
+			break;
+		}
+		sustFunction(str_aux,sust_pos);
 	}
-}*/
+	return;
+}
+void sustFunction(char str_aux[6],uint32_t sust_pos){
+
+	uint8_t str_aux_len = strlen(str_aux);
+
+	for(uint8_t i = 0; i < SERIAL_CHAR; i++) {
+		if (i >= (SERIAL_CHAR - str_aux_len))
+			str_send_package[i + sust_pos] = (char) str_aux[i-(SERIAL_CHAR - str_aux_len)];
+		else
+			str_send_package[i + sust_pos] = ' ';
+	}
+}
