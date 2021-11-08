@@ -71,61 +71,58 @@ uint32_t comp_freq = 0;			// Almacena eleccion del usuario de frecuencia deseada
 uint32_t error_margin = 0;		// Margen de error calculado como la 5ta parte de la frecuencia elegida.
 
 // *** Variables funcionalidad 2: METRONOMO ***
-TIM_MATCHCFG_Type match1_Metronomo;
-int8_t index = 0;
-uint32_t matchValue;
-uint32_t bpmTable[11] = {
+TIM_MATCHCFG_Type match1_Metronomo;	// Estructura configuracion Match 1 global para redefinir en ejecucion.
+int8_t index = 0;					// Indice para apuntar a elementos en tablas segun BPM elegidos
+uint32_t matchValue;				// Variable auxiliar para almacenar valor de match 1 obtenido de tabla.
+uint32_t bpmTable[11] = {		// Tabla con valores de match desde 50bpm a 150bpm respectivamente, cada 10bpm.
 		19999,9999,8570,7500,6666,
 		5999,5454,4999,4614,4285,3999
 };
-uint8_t bpmValueTable[11] = {
+// *** Variables funcionalidad 3: MONITOREO ***
+GPDMA_Channel_CFG_Type GPDMA_Struct;	// Estructura de DMA definida global.
+uint8_t TIMER3_IntStatus = 0;	// Variable para retener estado de funcionamiento y volver a activar.
+uint8_t ADC_IntStatus = 0;		// Variable para retener estado de funcionamiento y volver a activar.
+uint8_t bpmValueTable[11] = {	// Tabla con valores en bpm para asignacion de valor a sustituir.
 		50,60,70,80,90,100,110,120,130,140,150
 };
-// *** Variables funcionalidad 3: MONITOREO ***
-GPDMA_Channel_CFG_Type GPDMA_Struct;
-
-uint8_t TIMER3_IntStatus = 0;
-uint8_t ADC_IntStatus = 0;
-char str_send_package[760];
-char str_header[100];
-char str_header_afinador[100];
-char str_afinador_state[60];
-char str_comp_freq[60];
-char str_error_margin[60];
-char str_det_freq[60];
-char str_diff_freq[100];
-char str_header_met[100];
-char str_bpm_state[60];
-char str_bpm_value[60];
+char str_send_package[760];		// Arreglo que se recorre para envio DMA.
+char str_header_afinador[100];	// Mensaje cabecera info afinador.
+char str_afinador_state[60];	// Info encendido/apagado afinador.
+char str_comp_freq[60];			// Info frecuencia de comparacion actual de afinador.
+char str_error_margin[60];		// Info margen de error actual de afinador.
+char str_det_freq[60];			// Info frecuencia detectada actual de afinador.
+char str_diff_freq[100];		// Info diferencia de frecuencia para lograr afinacion.
+char str_header_met[100];		// Mensaje cabecera info metronomo.
+char str_bpm_state[60];			// Info encendido/apagado metronomo.
+char str_bpm_value[60];			// Info valor BPM actual de metronomo.
 
 // *** Variables funcionamiento Teclado ***
-uint8_t test_count = 0;
-uint8_t row_value = 0;
+uint8_t test_count = 0;		// Variable que cuenta hasta 3 interrupciones de systick para antirrebote.
+uint8_t row_value = 0;		// Almacena la fila en la que se encuentra el "0".
 
 // *** Variables mensaje bienvenida ***
 uint8_t is_loaded = 0; 		// Variable para carga unica de mensaje
 char str_welcome_package[1700];
-char str_equals[100];
-char str_header[100];
-char str_developers[80];
-char str_institution[110];
-char str_teacher[50];
-char str_subject[50];
-char str_func1[60];
-char str_func1_explain[110];
-char str_func1a[60];
-char str_func1b[60];
-char str_func1c[60];
-char str_func1d[60];
-char str_func2[60];
-char str_func2_explain[110];
-char str_func2_explain2[110];
-char str_func2_lower[65];
-char str_func2_100[60];
-char str_func2_higher[65];
-char str_func3[60];
-char str_func3_explain[110];
-char str_func3_show[100];
-char str_welcome[110];
-char str_finish[65];
-
+char str_header[100];		// Cartel de bienvenida.
+char str_equals[100];		// Iguales de separacion.
+char str_developers[80];	// Nombres de los alumnos.
+char str_institution[110];	// Nombre de Facultad y Universidad.
+char str_teacher[50];		// Nombre docente.
+char str_subject[50];		// Nombre de la materia.
+char str_func1[60];			// Cartel funcionalidad afinador.
+char str_func1_explain[110];// Explicacion funcionalidad afinador.
+char str_func1a[60];		// Tecla A.
+char str_func1b[60];		// Tecla B.
+char str_func1c[60];		// Tecla C.
+char str_func1d[60];		// Tecla D.
+char str_func2[60];			// Cartel funcionalidad metronomo.
+char str_func2_explain[110];// Explicacion funcionalidad metronomo.
+char str_func2_explain2[110];// Rangos de BPM admisibles y valor por defecto.
+char str_func2_lower[65];	// Tecla *.
+char str_func2_100[60];		// Tecla 0.
+char str_func2_higher[65];	// Tecla #.
+char str_func3[60];			// Cartel funcionalidad monitoreo.
+char str_func3_explain[110];// Explicacion funcionalidad monitoreo.
+char str_func3_show[100];	// Tecla 9.
+char str_welcome[110];		// Tecla 1 para volver a mostrar mensaje bienvenida.
+char str_finish[65];		// Oracion de cierre.
