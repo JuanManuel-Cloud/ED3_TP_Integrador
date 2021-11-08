@@ -540,13 +540,12 @@ void catFrecValue(void) {
 				sust_pos = POW_AFI_POS;			// Posicion de variable de estado AFINADOR
 			break;
 			case 1:
-				var_sust = comp_freq;			// Variable de estado frecuencia de comparacion
 				sust_pos = COMP_FREQ_POS;		// Posicion de variable de estado frecuencia de comparacion
 				sprintf(str_aux,"%d",var_sust);
 			break;
 			case 2:
 				var_sust = error_margin;		// Variable de estado margen de error
-				sust_pos = MARGIN_ERRROR_POS; 	// Posicion de variable de estado margen de error
+				sust_pos = MARGIN_ERROR_POS; 	// Posicion de variable de estado margen de error
 				sprintf(str_aux,"%d",var_sust);
 			break;
 			case 3:
