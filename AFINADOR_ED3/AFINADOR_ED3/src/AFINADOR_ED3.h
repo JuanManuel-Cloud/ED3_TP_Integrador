@@ -1,8 +1,21 @@
 
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include "LPC17xx.h"
+#include "lpc17xx_gpio.h"
+#include "lpc17xx_pinsel.h"
+#include "lpc17xx_systick.h"
+#include "lpc17xx_adc.h"
+#include "lpc17xx_timer.h"
+#include "lpc17xx_uart.h"
+#include "lpc17xx_gpdma.h"
+
+
 #define SAMP_FREQ	40000
 #define FREQ_BUFF   15
 
-#define DMA_SIZE 468
+#define DMA_SIZE 500//468
 #define SERIAL_CHAR 5
 
 #define POW_AFI_POS 104
@@ -27,7 +40,9 @@ void COL2_ISR(void);
 void COL3_ISR(void);
 void modifyBPM(int8_t value);
 void catFrecValue(void);
+void UART_strings(void);
 void sustFunction(char str_aux[5],uint32_t sust_pos);
+void welcomeMessage(void);
 
 TIM_MATCHCFG_Type match1_Metronomo;
 int8_t index = 0;
@@ -39,6 +54,33 @@ uint32_t bpmTable[11] = {
 uint8_t bpmValueTable[11] = {
 		50,60,70,80,90,100,110,120,130,140,150
 };
+
+ // ****** Variables mensaje bienvenida *******
+uint8_t is_loaded = 0; 		// Variable para carga unica de mensaje
+char str_welcome_package[1700];
+char str_equals[100];
+char str_header[100];
+char str_developers[80];
+char str_institution[110];
+char str_teacher[50];
+char str_subject[50];
+char str_func1[60];
+char str_func1_explain[110];
+char str_func1a[60];
+char str_func1b[60];
+char str_func1c[60];
+char str_func1d[60];
+char str_func2[60];
+char str_func2_explain[110];
+char str_func2_explain2[110];
+char str_func2_lower[65];
+char str_func2_100[60];
+char str_func2_higher[65];
+char str_func3[60];
+char str_func3_explain[110];
+char str_func3_show[100];
+char str_welcome[110];
+char str_finish[65];
 
 GPDMA_Channel_CFG_Type GPDMA_Struct;
 
