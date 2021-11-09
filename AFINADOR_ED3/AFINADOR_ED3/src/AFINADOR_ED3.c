@@ -311,7 +311,6 @@ void DMA_IRQHandler(void){ // Rutina de servicio a la interrupcion por completar
 		TIM_Cmd(LPC_TIM3, ENABLE);		// Inicializo TIMER3
 		NVIC_EnableIRQ(TIMER3_IRQn); 	// Habilito interrupciones por TIMER3
 	}
-
 }
 /*=============================================================================================================================================
  * 														KEYBOARD ZONE
@@ -336,7 +335,6 @@ void COL0_ISR(void){
 	switch(row_value){
 	case 0 :		// [COL0;FIL0]
 		printf("Columna: 0, Fila: %d\r\n",row_value);
-		welcomeMessage();
 	break;
 	case 1 :		// [COL0;FIL1]
 		printf("Columna: 0, Fila: %d\r\n",row_value);
@@ -346,12 +344,6 @@ void COL0_ISR(void){
 	break;
 	case 3 :		// [COL0;FIL3] = BOTON *
 		printf("Columna: 0, Fila: %d\r\n",row_value);
-		ADC_IntStatus = 0;
-		TIMER3_IntStatus = 1;
-		NVIC_DisableIRQ(ADC_IRQn);		// Inhabilito conversor ADC
-		TIM_Cmd(LPC_TIM3, ENABLE);		// Inicializo TIMER3
-		NVIC_EnableIRQ(TIMER3_IRQn); 	// Habilito interrupciones por TIMER3
-		modifyBPM(-1); // -10 bpm
 	break;
 	}
 }
@@ -360,12 +352,19 @@ void COL1_ISR(void){
 	switch(row_value){
 	case 0 :		// [COL1;FIL0]
 		printf("Columna: 1, Fila: %d\r\n",row_value);
+		welcomeMessage();
 	break;
 	case 1 :		// [COL1;FIL1]
 		printf("Columna: 1, Fila: %d\r\n",row_value);
 	break;
 	case 2 :		// [COL1;FIL2]
 		printf("Columna: 1, Fila: %d\r\n",row_value);
+		ADC_IntStatus = 0;
+		TIMER3_IntStatus = 1;
+		NVIC_DisableIRQ(ADC_IRQn);		// Inhabilito conversor ADC
+		TIM_Cmd(LPC_TIM3, ENABLE);		// Inicializo TIMER3
+		NVIC_EnableIRQ(TIMER3_IRQn); 	// Habilito interrupciones por TIMER3
+		modifyBPM(-1); // -10 bpm
 	break;
 	case 3 :		// [COL1;FIL3] = BOTON 0
 		printf("Columna: 1, Fila: %d\r\n",row_value);
@@ -439,7 +438,7 @@ void COL3_ISR(void){
 	}
 	ADC_IntStatus = 1;
 	TIMER3_IntStatus = 0;
-	error_margin = comp_freq/5;
+	error_margin = comp_freq/3;
 }
 /*=============================================================================================================================================
  * 					Funciones complementarias de FUNCIONALIDAD 1: AFINADOR
@@ -540,6 +539,7 @@ void catFrecValue(void) {
 				sust_pos = POW_AFI_POS;			// Posicion de variable de estado AFINADOR
 			break;
 			case 1:
+				var_sust = comp_freq;			// Variable de estado frecuencia de comparacion
 				sust_pos = COMP_FREQ_POS;		// Posicion de variable de estado frecuencia de comparacion
 				sprintf(str_aux,"%d",var_sust);
 			break;
@@ -609,13 +609,13 @@ void welcomeMessage(void){ // Funcion para imprimir mensaje de bienvenida via UA
 		sprintf(str_func2,"\t\nFUNCIONALIDAD 2: METRONOMO. \r\n\n");
 		sprintf(str_func2_explain,"\t\tElija los beats por minuto a los que desea que suene el BUZZER.\r\n");
 		sprintf(str_func2_explain2,"\t\tPor defecto 100 bpm. Minimo 50 bpm. Maximo 150 bpm.\r\n\n");
-		sprintf(str_func2_lower, "\t\t-Presione tecla '*' para disminuir el tempo en 10 bpm\r\n");
+		sprintf(str_func2_lower, "\t\t-Presione tecla '8' para disminuir el tempo en 10 bpm\r\n");
 		sprintf(str_func2_100,	 "\t\t-Presione tecla '0' para un tempo de 100 bpm \r\n");
 		sprintf(str_func2_higher,"\t\t-Presione tecla '#' para incrementar el tempo en 10 bpm\r\n");
 		sprintf(str_func3,"\t\nFUNCIONALIDAD 3: MONITOREO. \r\n\n");
 		sprintf(str_func3_explain,"\t\tPermite observar el estado actual del dispositivo sin frenar su funcionamiento.\r\n\n");
 		sprintf(str_func3_show,"\t\t-Presione tecla '9' para solicitar informacion del estado actual.\r\n");
-		sprintf(str_welcome,"\n\n\tPresionando la tecla '1', podra volver a imprimir el mensaje de bienvenida.\r\n");
+		sprintf(str_welcome,"\n\n\tPresionando la tecla '2', podra volver a imprimir el mensaje de bienvenida.\r\n");
 		sprintf(str_finish,"\n\n\t\t¡ Ahora disfrute de su afinador de confianza, A ROCKEAR ! \r\n\n\n");
 
 		strcat(str_welcome_package,str_equals);
