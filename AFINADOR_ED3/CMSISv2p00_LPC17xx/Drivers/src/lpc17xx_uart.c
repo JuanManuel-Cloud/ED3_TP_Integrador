@@ -872,7 +872,7 @@ void UART_FIFOConfig(LPC_UART_TypeDef *UARTx, UART_FIFO_CFG_Type *FIFOCfg)
 *******************************************************************************/
 void UART_FIFOConfigStructInit(UART_FIFO_CFG_Type *UART_FIFOInitStruct)
 {
-    UART_FIFOInitStruct->FIFO_DMAMode = DISABLE;
+    UART_FIFOInitStruct->FIFO_DMAMode = ENABLE;
     UART_FIFOInitStruct->FIFO_Level = UART_FIFO_TRGLEV0;
     UART_FIFOInitStruct->FIFO_ResetRxBuf = ENABLE;
     UART_FIFOInitStruct->FIFO_ResetTxBuf = ENABLE;

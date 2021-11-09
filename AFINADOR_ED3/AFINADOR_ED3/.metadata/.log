@@ -1,0 +1,9 @@
+!SESSION 2021-11-08 15:41:29.067 -----------------------------------------------
+eclipse.buildId=unknown
+java.version=11.0.10
+java.vendor=AdoptOpenJDK
+BootLoader constants: OS=linux, ARCH=x86_64, WS=gtk, NL=en_US
+Command-line arguments:  -data /home/lapclinkera/ED_III/ED3_TP_Integrador/AFINADOR_ED3/AFINADOR_ED3 -os linux -ws gtk -arch x86_64
+
+!ENTRY com.nxp.mcuxpresso.core.datamodels 1 0 2021-11-08 15:41:39.315
+!MESSAGE Recreating part support. No part support available.
